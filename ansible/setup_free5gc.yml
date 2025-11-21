@@ -1,0 +1,205 @@
+---
+- name: Common Setup for All Nodes
+  hosts: all
+  become: yes
+  tasks:
+    # --- Network Persistence Setup (Prevents settings loss on reboot) ---
+    - name: Disable Cloud-Init Network Management
+      copy:
+        dest: /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+        content: "network: {config: disabled}\n"
+
+    - name: Remove Cloud-Init Generated Netplan
+      file:
+        path: /etc/netplan/50-cloud-init.yaml
+        state: absent
+
+    - name: Create Persistent Netplan Config
+      copy:
+        dest: /etc/netplan/01-netcfg.yaml
+        content: |
+          network:
+            version: 2
+            renderer: networkd
+            ethernets:
+              enp0s3:
+                dhcp4: true
+                dhcp4-overrides:
+                  use-dns: false
+                nameservers:
+                  addresses: [8.8.8.8, 8.8.4.4]
+              enp0s8:
+                dhcp4: no
+                addresses:
+                  - {{ ansible_host }}/24
+
+    - name: Apply Netplan Immediately
+      command: netplan apply
+      # We run this as a task, not a handler, so DNS is fixed BEFORE apt update runs
+
+    - name: Update apt cache and upgrade packages
+      apt:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Install basic tools
+      apt:
+        name:
+          - git
+          - curl
+          - net-tools
+          - vim
+        state: present
+
+- name: Configure K8s Nodes (VM1 & VM2)
+  hosts: k8s_nodes
+  become: yes
+  tasks:
+    # --- Kernel & GTP5G Setup ---
+    - name: Install dependencies for gtp5g
+      apt:
+        name:
+          - make
+          - gcc
+          - g++
+          - linux-headers-{{ ansible_kernel }}
+        state: present
+
+    - name: Clone gtp5g repository
+      git:
+        repo: 'https://github.com/free5gc/gtp5g.git'
+        dest: /usr/src/gtp5g
+        force: yes
+
+    - name: Build and install gtp5g module
+      shell: |
+        make clean && make && make install
+      args:
+        chdir: /usr/src/gtp5g
+      register: gtp5g_install
+      changed_when: "'install' in gtp5g_install.stdout"
+
+    # --- Sysctl Networking Setup ---
+    - name: Load kernel modules for K8s
+      copy:
+        dest: /etc/modules-load.d/k8s.conf
+        content: |
+          overlay
+          br_netfilter
+
+    - name: Load overlay module
+      command: modprobe overlay
+
+    - name: Load br_netfilter module
+      command: modprobe br_netfilter
+
+    - name: Configure Sysctl for K8s and 5G
+      sysctl:
+        name: "{{ item }}"
+        value: '1'
+        sysctl_set: yes
+        state: present
+        reload: yes
+      loop:
+        - net.ipv4.ip_forward
+        - net.bridge.bridge-nf-call-iptables
+        - net.bridge.bridge-nf-call-ip6tables
+
+    # --- MicroK8s Installation ---
+    - name: Install MicroK8s via Snap
+      snap:
+        name: microk8s
+        classic: yes
+        channel: "1.32/stable"
+
+    - name: Add user to microk8s group
+      user:
+        name: "{{ ansible_user }}"
+        groups: microk8s
+        append: yes
+
+    - name: Create kubectl alias
+      shell: snap alias microk8s.kubectl kubectl
+      ignore_errors: yes
+
+    - name: Create .kube directory for user
+      file:
+        path: /home/{{ ansible_user }}/.kube
+        state: directory
+        mode: '0700'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Generate kube config
+      shell: microk8s config > /home/{{ ansible_user }}/.kube/config
+      args:
+        creates: /home/{{ ansible_user }}/.kube/config
+
+    - name: Fix kube config permissions
+      file:
+        path: /home/{{ ansible_user }}/.kube/config
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0600'
+
+    # --- MicroK8s Advanced Configuration (Tutorial Specifics) ---
+    - name: Wait for MicroK8s to be ready
+      command: microk8s status --wait-ready
+      changed_when: false
+
+    - name: Set Node IP in Kubelet args (Fixes 10.0.2.15 issue)
+      lineinfile:
+        path: /var/snap/microk8s/current/args/kubelet
+        line: "--node-ip={{ ansible_host }}"
+        insertafter: EOF
+      notify: Restart MicroK8s
+
+    - name: Allow IP Forwarding in Calico CNI (Required for UPF)
+      replace:
+        path: /var/snap/microk8s/current/args/cni-network/cni.yaml
+        regexp: '"type": "calico",'
+        replace: '"type": "calico", "container_settings": { "allow_ip_forwarding": true },'
+      notify: Restart MicroK8s
+
+    - name: Enable MicroK8s Addons
+      command: microk8s enable dns hostpath-storage
+      register: enable_addons
+      changed_when: "'already enabled' not in enable_addons.stdout"
+
+    - name: Install Multus CNI
+      command: microk8s kubectl apply -f https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/master/deployments/multus-daemonset.yml
+      register: install_multus
+      changed_when: "'created' in install_multus.stdout or 'configured' in install_multus.stdout"
+
+  handlers:
+    - name: Restart MicroK8s
+      shell: microk8s stop && microk8s start
+      args:
+        executable: /bin/bash
+
+- name: Configure UE/RAN Node (VM3)
+  hosts: ue_node
+  become: yes
+  tasks:
+    - name: Install UERANSIM build dependencies
+      apt:
+        name:
+          - make
+          - gcc
+          - g++
+          - libsctp-dev
+          - lksctp-tools
+          - iproute2
+        state: present
+
+    - name: Install CMake via Snap
+      snap:
+        name: cmake
+        classic: yes
+
+    - name: Clone UERANSIM
+      git:
+        repo: 'https://github.com/aligungr/UERANSIM'
+        dest: /home/{{ ansible_user }}/UERANSIM
+        force: yes
+      become: no
