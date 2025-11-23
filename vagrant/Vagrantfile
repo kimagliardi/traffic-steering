@@ -1,32 +1,33 @@
 Vagrant.configure("2") do |config|
-  # Use Ubuntu 20.04 (Focal) as the base image
   config.vm.box = "ubuntu/focal64"
-  
-  # Disable the default synced folder to prevent permission issues
   config.vm.synced_folder ".", "/vagrant", disabled: true
 
   # --- VM1: Control Plane ---
   config.vm.define "vm1" do |vm1|
     vm1.vm.hostname = "vm1"
-    # This creates the Host-Only adapter automatically with the static IP
     vm1.vm.network "private_network", ip: "192.168.56.119"
+    # REMOVED ssh.host and ssh.port to allow Vagrant to provision the network first
     
     vm1.vm.provider "virtualbox" do |vb|
-      vb.memory = "4096"
-      vb.cpus = 2
-      # Essential: Enable Promiscuous mode for 5G traffic
+      vb.memory = "8192"
+      vb.cpus = 4
       vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
     end
   end
 
-  # --- VM2: User Plane (UPF) ---
+# --- VM2: User Plane (UPF) ---
   config.vm.define "vm2" do |vm2|
     vm2.vm.hostname = "vm2"
-    vm2.vm.network "private_network", ip: "192.168.56.120"
     
+    # Explicit routing fix to ensure internet works
+    vm2.vm.network "private_network", 
+      ip: "192.168.56.120", 
+      netmask: "255.255.255.0"
+
     vm2.vm.provider "virtualbox" do |vb|
-      vb.memory = "4096"
-      vb.cpus = 2
+      #vb.gui = true       # Keep GUI on just in case
+      vb.memory = "8192"  # Reduced to 8GB
+      vb.cpus = 4
       vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
     end
   end
@@ -43,3 +44,54 @@ Vagrant.configure("2") do |config|
     end
   end
 end
+# Vagrant.configure("2") do |config|
+#   # Use Ubuntu 20.04 (Focal) as the base image
+#   config.vm.box = "ubuntu/focal64"
+  
+#   # Disable the default synced folder to prevent permission issues
+#   config.vm.synced_folder ".", "/vagrant", disabled: true
+
+#   # --- VM1: Control Plane ---
+#   config.vm.define "vm1" do |vm1|
+#     vm1.vm.hostname = "vm1"
+#     # This creates the Host-Only adapter automatically with the static IP
+#     vm1.vm.network "private_network", ip: "192.168.56.119"
+#     vm1.ssh.host = "192.168.56.119"
+#     vm1.ssh.port = 22
+    
+#     vm1.vm.provider "virtualbox" do |vb|
+#       vb.memory = "16000"
+#       vb.cpus = 4
+#       # Essential: Enable Promiscuous mode for 5G traffic
+#       vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+#     end
+#   end
+
+#   # --- VM2: User Plane (UPF) ---
+#   config.vm.define "vm2" do |vm2|
+#     vm2.vm.hostname = "vm2"
+#     vm2.vm.network "private_network", ip: "192.168.56.120"
+#     vm2.ssh.host = "192.168.56.120"
+#     vm2.ssh.port = 22
+    
+#     vm2.vm.provider "virtualbox" do |vb|
+#       vb.memory = "16000"
+#       vb.cpus = 4
+#       vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+#     end
+#   end
+
+#   # --- VM3: UE/RAN Simulator ---
+#   config.vm.define "vm3" do |vm3|
+#     vm3.vm.hostname = "vm3"
+#     vm3.vm.network "private_network", ip: "192.168.56.118"
+#     vm3.ssh.host = "192.168.56.118"
+#     vm3.ssh.port = 22
+    
+#     vm3.vm.provider "virtualbox" do |vb|
+#       vb.memory = "8092"
+#       vb.cpus = 2
+#       vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+#     end
+#   end
+# end
