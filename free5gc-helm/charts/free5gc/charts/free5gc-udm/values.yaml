@@ -42,7 +42,7 @@ udm:
   replicaCount: 1
   image:
     name: free5gc/udm
-    tag: v4.1.0
+    tag: v3.4.5
     pullPolicy: Always
   service:
     type: ClusterIP
@@ -73,7 +73,7 @@ udm:
     failureThreshold: 3
     successThreshold: 1
   nodeSelector:
-     kubernetes.io/hostname: ns
+    kubernetes.io/hostname: ns
   tolerations: []
   affinity: {}
   autoscaling:
@@ -110,13 +110,6 @@ udm:
         - ProtectionScheme: 2 # Protect Scheme: Profile B
           PrivateKey: F1AB1074477EBCC7F554EA1C5FC368B1616730155E0041AC447D6301975FECDA
           PublicKey: 0472DA71976234CE833A6907425867B82E074D44EF907DFB4B3E21C1C2256EBCD15A7DED52FCBB097A4ED250E036C7B9C8C7004C4EEDC4F068CD7BF8D3F900E3B4
-
-    # Metrics configuration
-    metrics:
-      enable: false # (Optional, default false)
-      scheme: http # (Required) the protocol for metrics (http or https, default https)
-      port: 9091 # (Optional, default 9091) port used to bind the service
-      namespace: free5gc # (Optional, default free5gc)
 
     logger: # log output setting
       enable: true # true or false

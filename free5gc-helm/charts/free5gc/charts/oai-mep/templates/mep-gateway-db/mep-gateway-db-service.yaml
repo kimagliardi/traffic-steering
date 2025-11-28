@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: oai-mep-gateway-db-service
+spec:
+  selector:
+    app: oai-mep-gateway-db
+  ports:
+    - port: 5432
+      targetPort: 5432

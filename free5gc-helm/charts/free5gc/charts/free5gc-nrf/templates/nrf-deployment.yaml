@@ -32,11 +32,6 @@ spec:
     metadata:
       annotations:
         {{- include "free5gc-nrf.nrfAnnotations" $ | nindent 8 }}
-        {{- if $.Values.nrf.configuration.metrics.enable }}
-        prometheus.io/scrape: "true"
-        prometheus.io/path: "/metrics"
-        prometheus.io/port: {{ $.Values.nrf.configuration.metrics.port | quote }}
-        {{- end }}
         checksum/config: {{ include (print $.Template.BasePath "/nrf-configmap.yaml") $ | sha256sum }}
       labels:
         {{- include "free5gc-nrf.selectorLabels" $ | nindent 8 }}
@@ -65,12 +60,7 @@ spec:
         securityContext:
             {{- toYaml .securityContext | nindent 12 }}
         ports:
-        - name: nnrf
-          containerPort: {{ $.Values.global.nrf.service.port }}
-        {{- if $.Values.nrf.configuration.metrics.enable }}
-        - name: metrics
-          containerPort: {{ $.Values.nrf.configuration.metrics.port }}
-        {{- end }}
+        - containerPort: {{ $.Values.global.nrf.service.port }}
         command: ["./nrf"]
         args: ["-c", "./config/nrfcfg.yaml"]
         env:

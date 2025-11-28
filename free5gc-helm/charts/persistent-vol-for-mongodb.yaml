@@ -19,5 +19,4 @@ spec:
         - key: kubernetes.io/hostname
           operator: In
           values:
-          # modify value to your hostname
           - ns

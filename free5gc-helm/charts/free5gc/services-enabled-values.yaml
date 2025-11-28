@@ -16,7 +16,7 @@ global:
       ngap:
         enabled: true
         name: amf-n2
-        port: 31412
+        port: 38412
         nodeport: 31412
         protocol: SCTP
         type: NodePort

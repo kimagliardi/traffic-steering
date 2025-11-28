@@ -32,11 +32,6 @@ spec:
     metadata:
       annotations:
         {{- include "free5gc-udm.udmAnnotations" $ | nindent 8 }}
-        {{- if $.Values.udm.configuration.metrics.enable }}
-        prometheus.io/scrape: "true"
-        prometheus.io/path: "/metrics"
-        prometheus.io/port: {{ $.Values.udm.configuration.metrics.port | quote }}
-        {{- end }}
         checksum/config: {{ include (print $.Template.BasePath "/udm-configmap.yaml") $ | sha256sum }}
       labels:
         {{- include "free5gc-udm.selectorLabels" $ | nindent 8 }}
@@ -64,12 +59,7 @@ spec:
         securityContext:
             {{- toYaml .securityContext | nindent 12 }}
         ports:
-        - name: nudm
-          containerPort: {{ .service.port }}
-        {{- if $.Values.udm.configuration.metrics.enable }}
-        - name: metrics
-          containerPort: {{ $.Values.udm.configuration.metrics.port }}
-        {{- end }}
+        - containerPort: {{ .service.port }}
         command: ["./udm"]
         args: ["-c", "./config/udmcfg.yaml"]
         env:

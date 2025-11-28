@@ -58,6 +58,6 @@ dbpython:
   readinessProbe: {}
   livenessProbe: {}
   nodeSelector:
-     kubernetes.io/hostname: ns
+    kubernetes.io/hostname: ns
   tolerations: []
   affinity: {}

@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-1
+  template:
+    metadata:
+      labels:
+        app: app-1
+      annotations:
+        k8s.v1.cni.cncf.io/networks: oai-mec-app-1-nad
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: ns
+      containers:
+        - name: app-1
+          image: corfr/tcpdump
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
+                - NET_RAW
+          command: ["/bin/sh", "-c", "sleep infinity"]
+      restartPolicy: Always

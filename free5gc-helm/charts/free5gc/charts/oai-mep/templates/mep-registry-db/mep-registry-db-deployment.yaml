@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oai-mep-registry-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oai-mep-registry-db
+  template:
+    metadata:
+      labels:
+        app: oai-mep-registry-db
+      annotations:
+        k8s.v1.cni.cncf.io/networks: oai-mep-registry-db-nad
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: ns2
+      containers:
+        - name: oai-mep-registry-db
+          image: localhost:32000/mongo:latest
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              value: "admin"
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              value: "linux"
+          ports:
+            - containerPort: 27017

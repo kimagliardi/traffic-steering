@@ -32,7 +32,7 @@ global:
       ipAddress: 10.100.50.249
     service:
       ngap:
-        enabled: true
+        enabled: false
         name: amf-n2
         port: 38412
         nodeport: 31412
@@ -64,7 +64,7 @@ amf:
   replicaCount: 1
   image:
     name: free5gc/amf
-    tag: v4.1.0
+    tag: v3.4.5
     pullPolicy: Always
   service:
     type: ClusterIP
@@ -95,7 +95,7 @@ amf:
     failureThreshold: 3
     successThreshold: 1
   nodeSelector:
-     kubernetes.io/hostname: ns
+    kubernetes.io/hostname: ns
   tolerations: []
   affinity: {}
   autoscaling:
@@ -222,13 +222,6 @@ amf:
         maxAttempts: 2 # the maximum attempts of each sctp connection
         maxInitTimeout: 2 # the maximum init timeout of each sctp connection
       defaultUECtxReq: false # the default value of UE Context Request to decide when triggering Initial Context Setup procedure
-
-    # Metrics configuration
-    metrics:
-      enable: false # (Optional, default false)
-      scheme: http # (Required) the protocol for metrics (http or https, default https)
-      port: 9091 # (Optional, default 9091) port used to bind the service
-      namespace: free5gc # (Optional, default free5gc)
 
     logger: # log output setting
       enable: true # true or false

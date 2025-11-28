@@ -57,7 +57,7 @@ smf:
   replicaCount: 1
   image:
     name: free5gc/smf
-    tag: v4.1.0
+    tag: v3.4.5
     pullPolicy: Always
   service:
     type: ClusterIP
@@ -88,7 +88,7 @@ smf:
     failureThreshold: 3
     successThreshold: 1
   nodeSelector:
-    kubernetes.io/hostname: ns  
+    kubernetes.io/hostname: ns
   tolerations: []
   affinity: {}
   autoscaling:
@@ -202,6 +202,7 @@ smf:
           - A: BranchingUPF
             B: AnchorUPF2
       locality: area1 # Name of the location where a set of AMF, SMF and UPFs are located
+      ulcl: true
       t3591:
         enable: true # true or false
         expireTime: 16s # default is 6 seconds
@@ -226,7 +227,8 @@ smf:
         specificPath:
           - dest: 1.0.0.1/32
             path: [BranchingUPF, AnchorUPF2]
-
+          - dest: 10.0.2.105/32
+            path: [BranchingUPF, AnchorUPF1]
       UE2: # Group Name
         members:
         - imsi-208930000000004 # Subscription Permanent Identifier of the UE
@@ -242,13 +244,6 @@ smf:
             # the order of UPF nodes in this path. We use the UPF's name to represent each UPF node.
             # The UPF's name should be consistent with smfcfg.yaml
             path: [BranchingUPF, AnchorUPF2]
-
-    # Metrics configuration
-    metrics:
-      enable: false # (Optional, default false)
-      scheme: http # (Required) the protocol for metrics (http or https, default https)
-      port: 9091 # (Optional, default 9091) port used to bind the service
-      namespace: free5gc # (Optional, default free5gc)
 
     logger: # log output setting
       enable: true # true or false

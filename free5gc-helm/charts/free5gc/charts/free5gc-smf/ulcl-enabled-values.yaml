@@ -99,6 +99,7 @@ smf:
           - A: BranchingUPF
             B: AnchorUPF2
       locality: area1 # Name of the location where a set of AMF, SMF and UPFs are located
+      ulcl: true
       t3591:
         enable: true # true or false
         expireTime: 16s # default is 6 seconds
