@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oai-mep-registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oai-mep-registry
+  template:
+    metadata:
+      labels:
+        app: oai-mep-registry
+      annotations:
+        k8s.v1.cni.cncf.io/networks: oai-mep-registry-nad
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: ns2
+      containers:
+        - name: oai-mep-registry
+          image: localhost:32000/oaisoftwarealliance/oai-mep:latest
+          env:
+            - name: CONFIG_FILE
+              value: "/usr/local/etc/configuration.yaml"
+            - name: MOUNT_CONFIG
+              value: "no"
+            - name: HOST
+              value: "10.0.2.7"
+            - name: PORT
+              value: "80"
+            - name: LOG_LEVEL
+              value: "info"
+            - name: FQDN
+              value: "oai-mep.org"
+            - name: BACKEND
+              value: "10.0.2.6:8001"
+            - name: DATABASE_HOST
+              value: "10.0.2.4"
+            - name: DATABASE_PORT
+              value: "27017"
+            - name: DATABASE_USER
+              value: "admin"
+            - name: DATABASE_PASSWORD
+              value: "linux"
+            - name: RESET_DATABASE
+              value: "yes"
+          ports:
+            - containerPort: 80

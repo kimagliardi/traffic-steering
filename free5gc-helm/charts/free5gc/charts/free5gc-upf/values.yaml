@@ -59,10 +59,10 @@ global:
 
 upf:
   name: upf
-  replicaCount: 0
+  replicaCount: 1
   image:
     name: free5gc/upf
-    tag: v4.1.0
+    tag: v3.4.5
     pullPolicy: IfNotPresent
   configmap:
     wrapperAdditionalCommands: ""
@@ -74,11 +74,11 @@ upf:
 
   # network paramters
   n3if:  # GTP-U
-    ipAddress: 192.168.56.19
+    ipAddress: 10.100.50.233
   n4if:  # PFCP
     ipAddress: 10.100.50.241
   n6if:  # DN
-    ipAddress: 10.0.2.16
+    ipAddress: 10.100.100.12
 
   podAnnotations: {}
     # additional annotations
@@ -132,8 +132,8 @@ upf1:
   name: upf1
   replicaCount: 1
   image:
-    name: free5gc/upf
-    tag: v4.1.0
+    name: localhost:32000/free5gc/upf
+    tag: v3.4.5
     pullPolicy: IfNotPresent
   configmap:
     wrapperAdditionalCommands: ""
@@ -154,11 +154,7 @@ upf1:
   podAnnotations: {}
     # additional annotations
   imagePullSecrets: []
-  podSecurityContext:
-    podSecurityContext:
-    sysctls:
-      - name: net.ipv4.ip_forward
-        value: "1"
+  podSecurityContext: {}
   securityContext:
     capabilities:
       add: ["NET_ADMIN"]
@@ -206,8 +202,8 @@ upf2:
   name: upf2
   replicaCount: 1
   image:
-    name: free5gc/upf
-    tag: v4.1.0
+    name: localhost:32000/free5gc/upf
+    tag: v3.4.5
     pullPolicy: IfNotPresent
   configmap:
     wrapperAdditionalCommands: ""
@@ -276,8 +272,8 @@ upfb:
   name: upfb
   replicaCount: 1
   image:
-    name: free5gc/upf
-    tag: v4.1.0
+    name: localhost:32000/free5gc/upf
+    tag: v3.4.5
     pullPolicy: IfNotPresent
   configmap:
     wrapperAdditionalCommands: ""
@@ -321,7 +317,7 @@ upfb:
     failureThreshold: 3
     successThreshold: 1
   nodeSelector:
-     kubernetes.io/hostname: ns2
+    kubernetes.io/hostname: ns2
   tolerations: []
   affinity: {}
   autoscaling:

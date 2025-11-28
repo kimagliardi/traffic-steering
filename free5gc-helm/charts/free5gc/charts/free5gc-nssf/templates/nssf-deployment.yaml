@@ -32,11 +32,6 @@ spec:
     metadata:
       annotations:
         {{- include "free5gc-nssf.nssfAnnotations" $ | nindent 8 }}
-        {{- if $.Values.nssf.configuration.metrics.enable }}
-        prometheus.io/scrape: "true"
-        prometheus.io/path: "/metrics"
-        prometheus.io/port: {{ $.Values.nssf.configuration.metrics.port | quote }}
-        {{- end }}
         checksum/config: {{ include (print $.Template.BasePath "/nssf-configmap.yaml") $ | sha256sum }}
       labels:
         {{- include "free5gc-nssf.selectorLabels" $ | nindent 8 }}
@@ -64,12 +59,7 @@ spec:
         securityContext:
             {{- toYaml .securityContext | nindent 12 }}
         ports:
-        - name: nnssf
-          containerPort: {{ .service.port }}
-        {{- if $.Values.nssf.configuration.metrics.enable }}
-        - name: metrics
-          containerPort: {{ $.Values.nssf.configuration.metrics.port }}
-        {{- end }}
+        - containerPort: {{ .service.port }}
         command: ["./nssf"]
         args: ["-c", "./config/nssfcfg.yaml"]
         env:

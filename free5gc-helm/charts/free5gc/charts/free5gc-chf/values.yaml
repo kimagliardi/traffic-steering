@@ -47,7 +47,7 @@ chf:
   replicaCount: 1
   image:
     name: free5gc/chf
-    tag: v4.1.0
+    tag: v3.4.5
     pullPolicy: Always
   service:
     type: ClusterIP
@@ -80,7 +80,7 @@ chf:
     failureThreshold: 3
     successThreshold: 1
   nodeSelector:
-     kubernetes.io/hostname: ns
+    kubernetes.io/hostname: ns
   tolerations: []
   affinity: {}
   autoscaling:
@@ -104,14 +104,6 @@ chf:
   configuration: 
     serviceNameList: |-
       - nchf-convergedcharging # Nchf_AMPolicyControl service
-    
-    # Metrics configuration
-    metrics:
-      enable: false # (Optional, default false)
-      scheme: http # (Required) the protocol for metrics (http or https, default https)
-      port: 9091 # (Optional, default 9091) port used to bind the service
-      namespace: free5gc # (Optional, default free5gc)
-
     logger: # log output setting
       enable: true # true or false
       level: info # how detailed to output, value: trace, debug, info, warn, error, fatal, panic

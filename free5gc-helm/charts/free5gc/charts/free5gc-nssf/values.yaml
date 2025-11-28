@@ -42,7 +42,7 @@ nssf:
   replicaCount: 1
   image:
     name: free5gc/nssf
-    tag: v4.1.0
+    tag: v3.4.5
     pullPolicy: Always
   service:
     type: ClusterIP
@@ -72,7 +72,8 @@ nssf:
     timeoutSeconds: 10
     failureThreshold: 3
     successThreshold: 1
-  nodeSelector: {}
+  nodeSelector:
+    kubernetes.io/hostname: ns
   tolerations: []
   affinity: {}
   autoscaling:
@@ -306,14 +307,6 @@ nssf:
               homeSnssai:
                 sst: 1
                 sd: 3
-
-    # Metrics configuration
-    metrics:
-      enable: false # (Optional, default false)
-      scheme: http # (Required) the protocol for metrics (http or https, default https)
-      port: 9091 # (Optional, default 9091) port used to bind the service
-      namespace: free5gc # (Optional, default free5gc)
-
     # the kind of log output
       # debugLevel: how detailed to output, value: trace, debug, info, warn, error, fatal, panic
       # ReportCaller: enable the caller report or not, value: true or false

@@ -37,7 +37,7 @@ nef:
   replicaCount: 1
   image:
     name: free5gc/nef
-    tag: v4.1.0
+    tag: v3.4.5
     pullPolicy: Always
   service:
     type: ClusterIP
@@ -68,7 +68,7 @@ nef:
     failureThreshold: 3
     successThreshold: 1
   nodeSelector:
-     kubernetes.io/hostname: ns
+    kubernetes.io/hostname: ns
   tolerations: []
   affinity: {}
   autoscaling:

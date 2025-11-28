@@ -23,11 +23,6 @@ spec:
     metadata:
       annotations:
         {{- include "free5gc-chf.chfAnnotations" $ | nindent 8 }}
-        {{- if $.Values.chf.configuration.metrics.enable }}
-        prometheus.io/scrape: "true"
-        prometheus.io/path: "/metrics"
-        prometheus.io/port: {{ $.Values.chf.configuration.metrics.port | quote }}
-        {{- end }}
         checksum/config: {{ include (print $.Template.BasePath "/chf-configmap.yaml") $ | sha256sum }}
       labels:
         {{- include "free5gc-chf.selectorLabels" $ | nindent 8 }}
@@ -49,17 +44,14 @@ spec:
           command: ['sh', '-c', 'set -x; for dependency in $DEPENDENCIES; do while [ $(curl --insecure --connect-timeout 1 -s -o /dev/null -w "%{http_code}" $dependency) -ne 200 ]; do echo waiting for dependencies; sleep 1; done; done;']
       containers:
       - name: {{ .name }}
+        securityContext:
+          {{- toYaml .securityContext | nindent 12 }}
         image: {{ .image.name }}:{{ .image.tag | default $.Chart.AppVersion }}
         imagePullPolicy: {{ .image.pullPolicy }}
         securityContext:
           {{- toYaml .securityContext | nindent 12 }}
         ports:
-        - name: nchf
-          containerPort: {{ .service.port }}
-        {{- if $.Values.chf.configuration.metrics.enable }}
-        - name: metrics
-          containerPort: {{ $.Values.chf.configuration.metrics.port }}
-        {{- end }}
+          - containerPort: {{ .service.port }}
         command: ["./chf"]
         args: ["-c", "./config/chfcfg.yaml"]
         env:
@@ -82,7 +74,7 @@ spec:
         {{- toYaml .affinity | nindent 8 }}
       tolerations:
         {{- toYaml .tolerations | nindent 8 }}
-
+      
       volumes:
         - name: {{ include "free5gc-chf.fullname" $ }}-volume
           projected:

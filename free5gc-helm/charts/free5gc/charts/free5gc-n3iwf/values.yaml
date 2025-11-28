@@ -32,15 +32,15 @@ global:
         type: NodePort
   n2network:
     name: n2network
-    masterIf: enp0s8
+    masterIf: eth0
     subnetIP: 10.100.50.248
     cidr: 29
     gatewayIP: 10.100.50.254
     excludeIP: 10.100.50.254
   n3network:
     name: n3network
-    masterIf: enp0s8
-    subnetIP: 192.168.56.0
+    masterIf: eth0
+    subnetIP: 10.100.50.232
     cidr: 29
     gatewayIP: 10.100.50.238
     excludeIP: 10.100.50.238
@@ -50,7 +50,7 @@ n3iwf:
   replicaCount: 1
   image:
     name: free5gc/n3iwf
-    tag: v4.1.0
+    tag: v3.4.5
     pullPolicy: Always
   configmap:
     name: n3iwf-configmap
@@ -66,7 +66,7 @@ n3iwf:
   ike:  # define an interface for the IKE daemon as mentioned in the free5gc github README.md
     ipAddress: 172.16.10.5
     name: ikenetwork
-    masterIf: enp0s8
+    masterIf: eth0
     subnetIP: 172.16.10.0
     cidr: 24
     gatewayIP: 172.16.10.1
@@ -95,7 +95,7 @@ n3iwf:
     failureThreshold: 3
     successThreshold: 1
   nodeSelector:
-     kubernetes.io/hostname: ns
+    kubernetes.io/hostname: ns
   tolerations: []
   affinity: {}
   autoscaling:
@@ -152,13 +152,6 @@ n3iwf:
 
       # IP address that will be allocated to UE in IPSec tunnel
       UEIPAddressRange: 10.0.0.0/24
-
-    # Metrics configuration
-    metrics:
-      enable: false # (Optional, default false)
-      scheme: http # (Required) the protocol for metrics (http or https, default https)
-      port: 9091 # (Optional, default 9091) port used to bind the service
-      namespace: free5gc # (Optional, default free5gc)
 
     # the kind of log output
       # debugLevel: how detailed to output, value: trace, debug, info, warn, error, fatal, panic
