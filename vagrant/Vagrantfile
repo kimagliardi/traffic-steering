@@ -2,35 +2,35 @@ Vagrant.configure("2") do |config|
   config.vm.box = "ubuntu/focal64"
   config.vm.synced_folder ".", "/vagrant", disabled: true
 
-  # --- VM1: Control Plane ---
-  config.vm.define "vm1" do |vm1|
-    vm1.vm.hostname = "vm1"
-    vm1.vm.network "private_network", ip: "192.168.56.119"
+  # --- ns: Control Plane ---
+  config.vm.define "ns" do |ns|
+    ns.vm.hostname = "ns"
+    ns.vm.network "private_network", ip: "192.168.56.119"
     # REMOVED ssh.host and ssh.port to allow Vagrant to provision the network first
     
     # Sync free5gc-helm folder
-    vm1.vm.synced_folder "../free5gc-helm", "/home/vagrant/free5gc-helm"
+    ns.vm.synced_folder "../free5gc-helm", "/home/vagrant/free5gc-helm"
     
-    vm1.vm.provider "virtualbox" do |vb|
+    ns.vm.provider "virtualbox" do |vb|
       vb.memory = "8192"
       vb.cpus = 4
       vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
     end
   end
 
-# --- VM2: User Plane (UPF) ---
-  config.vm.define "vm2" do |vm2|
-    vm2.vm.hostname = "vm2"
+# --- ns2: User Plane (UPF) ---
+  config.vm.define "ns2" do |ns2|
+    ns2.vm.hostname = "ns2"
     
     # Explicit routing fix to ensure internet works
-    vm2.vm.network "private_network", 
+    ns2.vm.network "private_network", 
       ip: "192.168.56.120", 
       netmask: "255.255.255.0"
 
     # Sync free5gc-helm folder
-    vm2.vm.synced_folder "../free5gc-helm", "/home/vagrant/free5gc-helm"
+    ns2.vm.synced_folder "../free5gc-helm", "/home/vagrant/free5gc-helm"
 
-    vm2.vm.provider "virtualbox" do |vb|
+    ns2.vm.provider "virtualbox" do |vb|
       #vb.gui = true       # Keep GUI on just in case
       vb.memory = "8192"  # Reduced to 8GB
       vb.cpus = 4
@@ -60,15 +60,15 @@ end
 #   # Disable the default synced folder to prevent permission issues
 #   config.vm.synced_folder ".", "/vagrant", disabled: true
 
-#   # --- VM1: Control Plane ---
-#   config.vm.define "vm1" do |vm1|
-#     vm1.vm.hostname = "vm1"
+#   # --- ns: Control Plane ---
+#   config.vm.define "ns" do |ns|
+#     ns.vm.hostname = "ns"
 #     # This creates the Host-Only adapter automatically with the static IP
-#     vm1.vm.network "private_network", ip: "192.168.56.119"
-#     vm1.ssh.host = "192.168.56.119"
-#     vm1.ssh.port = 22
+#     ns.vm.network "private_network", ip: "192.168.56.119"
+#     ns.ssh.host = "192.168.56.119"
+#     ns.ssh.port = 22
     
-#     vm1.vm.provider "virtualbox" do |vb|
+#     ns.vm.provider "virtualbox" do |vb|
 #       vb.memory = "16000"
 #       vb.cpus = 4
 #       # Essential: Enable Promiscuous mode for 5G traffic
@@ -76,14 +76,14 @@ end
 #     end
 #   end
 
-#   # --- VM2: User Plane (UPF) ---
-#   config.vm.define "vm2" do |vm2|
-#     vm2.vm.hostname = "vm2"
-#     vm2.vm.network "private_network", ip: "192.168.56.120"
-#     vm2.ssh.host = "192.168.56.120"
-#     vm2.ssh.port = 22
+#   # --- ns2: User Plane (UPF) ---
+#   config.vm.define "ns2" do |ns2|
+#     ns2.vm.hostname = "ns2"
+#     ns2.vm.network "private_network", ip: "192.168.56.120"
+#     ns2.ssh.host = "192.168.56.120"
+#     ns2.ssh.port = 22
     
-#     vm2.vm.provider "virtualbox" do |vb|
+#     ns2.vm.provider "virtualbox" do |vb|
 #       vb.memory = "16000"
 #       vb.cpus = 4
 #       vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]

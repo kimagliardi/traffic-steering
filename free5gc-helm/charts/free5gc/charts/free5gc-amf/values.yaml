@@ -95,7 +95,7 @@ amf:
     failureThreshold: 3
     successThreshold: 1
   nodeSelector:
-     kubernetes.io/hostname: vm1
+     kubernetes.io/hostname: ns
   tolerations: []
   affinity: {}
   autoscaling:

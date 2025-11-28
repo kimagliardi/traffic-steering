@@ -49,10 +49,14 @@
           - curl
           - net-tools
           - vim
-          - helm
         state: present
 
-- name: Configure K8s Nodes (VM1 & VM2)
+    - name: Install Helm via Snap
+      snap:
+        name: helm
+        classic: yes
+
+- name: Configure K8s Nodes (ns & ns2)
   hosts: k8s_nodes
   become: yes
   tasks:
@@ -105,6 +109,22 @@
         - net.ipv4.ip_forward
         - net.bridge.bridge-nf-call-iptables
         - net.bridge.bridge-nf-call-ip6tables
+
+    - name: Ensure forwarding and bridge-nf sysctls
+      sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        sysctl_set: yes
+        state: present
+        reload: yes
+      loop:
+        - { key: 'net.ipv4.ip_forward', value: '1' }
+        - { key: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+        - { key: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
+
+    - name: Ensure FORWARD policy is ACCEPT (temporary safety)
+      command: iptables -P FORWARD ACCEPT
+      when: ansible_facts['os_family'] == 'Debian'
 
     # --- MicroK8s Installation ---
     - name: Install MicroK8s via Snap
@@ -178,6 +198,179 @@
       args:
         executable: /bin/bash
 
+- name: Deploy MongoDB PV/PVC on Control Plane (ns)
+  hosts: ns
+  become: yes
+  tasks:
+    - name: Create kubedata directory for MongoDB PV
+      file:
+        path: /home/vagrant/kubedata
+        state: directory
+        mode: '0755'
+        owner: vagrant
+        group: vagrant
+
+    - name: Create certdata directory for cert PV
+      file:
+        path: /home/vagrant/certdata
+        state: directory
+        mode: '0755'
+        owner: vagrant
+        group: vagrant
+
+    - name: Copy MongoDB PV manifest
+      copy:
+        src: mongopv.yaml
+        dest: /home/vagrant/mongopv.yaml
+        owner: vagrant
+        group: vagrant
+        mode: '0644'
+
+    - name: Copy MongoDB PVC manifest
+      copy:
+        src: mongopvc.yaml
+        dest: /home/vagrant/mongopvc.yaml
+        owner: vagrant
+        group: vagrant
+        mode: '0644'
+
+    - name: Apply MongoDB PV
+      command: microk8s kubectl apply -f /home/vagrant/mongopv.yaml
+      register: apply_pv
+      changed_when: "'created' in apply_pv.stdout or 'configured' in apply_pv.stdout"
+
+    - name: Apply MongoDB PVC (cert PV)
+      command: microk8s kubectl apply -f /home/vagrant/mongopvc.yaml
+      register: apply_pvc
+      changed_when: "'created' in apply_pvc.stdout or 'configured' in apply_pvc.stdout"
+
+    - name: Verify PVs are created
+      command: microk8s kubectl get pv
+      register: pv_status
+      changed_when: false
+
+    - name: Show PV status
+      debug:
+        var: pv_status.stdout_lines
+
+# - name: Create MicroK8s Cluster (Join ns2 to ns)
+#   hosts: ns
+#   become: yes
+#   tasks:
+#     - name: Generate join token on control plane (ns)
+#       command: microk8s add-node --token-ttl 3600
+#       register: add_node_output
+#       changed_when: false
+
+#     - name: Extract join command for worker node (prefer private IP)
+#       set_fact:
+#         join_line_192: "{{ add_node_output.stdout_lines | select('match', '192\\.168\\.56\\.119') | list | first | default('') }}"
+
+#     - name: "Fallback: extract any join line if private IP not found"
+#       set_fact:
+#         join_line_any: "{{ add_node_output.stdout_lines | select('match', '^microk8s join') | list | first | default('') }}"
+
+#     - name: Build normalized join command (control-plane join)
+#       set_fact:
+#         join_command: >-
+#           {{ (join_line_192 if join_line_192 != '' else join_line_any) | regex_replace('\\s*--worker\\s*$', '') }}
+
+#     - name: Display join command
+#       debug:
+#         msg: "Join command: {{ join_command }}"
+
+# - name: Join ns2 to MicroK8s Cluster
+#   hosts: ns2
+#   become: yes
+#   tasks:
+#     - name: Check if already joined to cluster
+#       command: microk8s status
+#       register: microk8s_status
+#       changed_when: false
+#       failed_when: false
+
+#     - name: Join cluster as worker node (use private IP for control plane)
+#       command: "{{ hostvars['ns']['join_command'] | regex_replace('10\\.0\\.2\\.15','192.168.56.119') }}"
+#       when: "'This MicroK8s deployment is acting as a node in a cluster' not in microk8s_status.stdout"
+#       register: join_result
+
+#     - name: Show join result
+#       debug:
+#         var: join_result.stdout_lines
+#       when: join_result is changed
+
+# - name: Verify Cluster Status
+#   hosts: ns
+#   become: yes
+#   tasks:
+#     - name: Wait for ns2 to join the cluster
+#       command: microk8s kubectl get nodes
+#       register: nodes_status
+#       until: "'ns2' in nodes_status.stdout and 'Ready' in nodes_status.stdout"
+#       retries: 12
+#       delay: 10
+#       changed_when: false
+
+- name: Collect pod images on control plane
+  hosts: ns
+  become: yes
+  run_once: true
+  tasks:
+    - name: List container images from all pods (one per line)
+      command: >-
+        bash -lc "microk8s kubectl get pods --all-namespaces -o jsonpath='{range .items[*]}{range .spec.containers[*]}{.image}{"\n"}{end}{end}'"
+      register: pod_images_raw
+      changed_when: false
+
+    - name: Set images fact (unique, non-empty)
+      set_fact:
+        pod_images: "{{ pod_images_raw.stdout_lines | map('trim') | select('!=', '') | list | unique }}"
+
+    - name: Show discovered images
+      debug:
+        var: pod_images
+
+- name: Pull and load images to MicroK8s on ns and ns2
+  hosts: ns:ns2
+  become: yes
+  tasks:
+    - name: Ensure pod_images fact exists (copied from control plane)
+      set_fact:
+        images_to_pull: "{{ hostvars['ns'].pod_images | default([]) }}"
+
+    - name: Pull image into MicroK8s (ctr pull)
+      vars:
+        image: "{{ item }}"
+      command: microk8s ctr image pull {{ image }}
+      register: pull_result
+      failed_when: false
+      with_items: "{{ images_to_pull }}"
+
+    - name: Show pull results
+      debug:
+        var: pull_result.results
+
+- name: Deploy Helm chart to MicroK8s (control plane)
+  hosts: ns
+  become: yes
+  tasks:
+    - name: Create namespace free5gc if not present
+      command: microk8s kubectl create namespace free5gc
+      register: ns_create
+      failed_when: false
+
+    - name: Install Helm chart for free5gc
+      command: >-
+        helm -n free5gc install free5gc-v1 ./free5gc/ --wait --timeout 10m || helm -n free5gc upgrade --install free5gc-v1 ./free5gc/ --wait --timeout 10m
+      args:
+        chdir: /home/vagrant/free5gc-helm/charts
+      register: helm_install
+      failed_when: helm_install.rc not in [0]
+
+    - name: Show helm install output
+      debug:
+        var: helm_install.stdout_lines
+
 - name: Configure UE/RAN Node (VM3)
   hosts: ue_node
   become: yes
@@ -198,9 +391,11 @@
         name: cmake
         classic: yes
 
-    - name: Clone UERANSIM
-      git:
-        repo: 'https://github.com/aligungr/UERANSIM'
-        dest: /home/{{ ansible_user }}/UERANSIM
-        force: yes
+    - name: Ensure UERANSIM folder exists (shared via Vagrant)
+      file:
+        path: /home/{{ ansible_user }}/UERANSIM
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
       become: no
