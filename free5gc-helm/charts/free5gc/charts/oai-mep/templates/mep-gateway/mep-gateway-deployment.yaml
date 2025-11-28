@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oai-mep-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oai-mep-gateway
+  template:
+    metadata:
+      labels:
+        app: oai-mep-gateway
+      annotations:
+        k8s.v1.cni.cncf.io/networks: oai-mep-gateway-nad
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: [Edge Node Name]
+      containers:
+        - name: oai-mep-gateway
+          image: kong:3.0-alpine
+          env:
+            - name: KONG_PG_HOST
+              value: "[OAI MEP Gateway DB IP Address]"
+            - name: KONG_PG_PASSWORD
+              value: "kong"
+            - name: KONG_PROXY_LISTEN
+              value: "0.0.0.0:8002"
+            - name: KONG_ADMIN_LISTEN
+              value: "0.0.0.0:8001"
+          ports:
+            - containerPort: 8002
+            - containerPort: 8001

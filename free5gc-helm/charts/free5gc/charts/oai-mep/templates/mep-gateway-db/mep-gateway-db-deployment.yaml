@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oai-mep-gateway-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oai-mep-gateway-db
+  template:
+    metadata:
+      labels:
+        app: oai-mep-gateway-db
+      annotations:
+        k8s.v1.cni.cncf.io/networks: oai-mep-gateway-db-nad
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: [Edge Node Name]
+      containers:
+        - name: oai-mep-gateway-db
+          image: postgres:9.6
+          env:
+            - name: POSTGRES_USER
+              value: "kong"
+            - name: POSTGRES_DB
+              value: "kong"
+            - name: POSTGRES_PASSWORD
+              value: "kong"
+          ports:
+            - containerPort: 5432

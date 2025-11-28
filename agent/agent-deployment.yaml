@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smart-slice-agent
+  namespace: free5gc
+  labels:
+    app: smart-slice-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smart-slice-agent
+  template:
+    metadata:
+      labels:
+        app: smart-slice-agent
+      annotations:
+        # Standard Prometheus scraping annotations
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/"
+    spec:
+      containers:
+      - name: agent
+        image: smart-slice-agent:v1  # Remember to build this image locally or push to registry
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: metrics
+        env:
+        # Configuration passed to Python script
+        - name: OLLAMA_HOST
+          value: "http://ollama-service:11434" # Update this to your Ollama IP/Service
+        - name: OLLAMA_MODEL
+          value: "qwen2.5-coder"
+        - name: PROMETHEUS_URL
+          value: "[http://prometheus-server.free5gc.svc.cluster.local:80](http://prometheus-server.free5gc.svc.cluster.local:80)" # Adjust based on your Prometheus Svc name
+        - name: NEF_URL
+          value: "http://nef-service:8000" # Adjust based on your NEF Svc name
+        - name: CENTRAL_UPF_IP
+          value: "192.168.56.101"
+        - name: EDGE_UPF_IP
+          value: "192.168.56.120"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smart-slice-agent-service
+  namespace: free5gc
+  labels:
+    app: smart-slice-agent
+spec:
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: metrics
+  selector:
+    app: smart-slice-agent
+  type: ClusterIP

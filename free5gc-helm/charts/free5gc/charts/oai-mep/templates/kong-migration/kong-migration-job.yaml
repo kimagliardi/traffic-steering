@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: oai-kong-migration
+spec:
+  template:
+    metadata:
+      annotations:
+        k8s.v1.cni.cncf.io/networks: oai-kong-migration-nad
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: [Edge Node Name]
+      restartPolicy: OnFailure
+      containers:
+        - name: oai-kong-migration
+          image: kong:3.0-alpine
+          command: ["kong", "migrations", "bootstrap"]
+          env:
+            - name: KONG_PG_HOST
+              value: "[OAI MEP Gateway DB IP Address]"
+            - name: KONG_PG_PASSWORD
+              value: "kong"

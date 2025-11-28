@@ -49,6 +49,7 @@
           - curl
           - net-tools
           - vim
+          - helm
         state: present
 
 - name: Configure K8s Nodes (VM1 & VM2)
