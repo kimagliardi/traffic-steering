@@ -1,24 +1,24 @@
-Host vm1
+Host ns
   HostName 127.0.0.1
   User vagrant
   Port 2222
   UserKnownHostsFile /dev/null
   StrictHostKeyChecking no
   PasswordAuthentication no
-  IdentityFile /home/elliot/Documents/traffic-steering/vagrant/.vagrant/machines/vm1/virtualbox/private_key
+  IdentityFile /home/elliot/Documents/traffic-steering/vagrant/.vagrant/machines/ns/virtualbox/private_key
   IdentitiesOnly yes
   LogLevel FATAL
   PubkeyAcceptedKeyTypes +ssh-rsa
   HostKeyAlgorithms +ssh-rsa
 
-Host vm2
+Host ns2
   HostName 127.0.0.1
   User vagrant
   Port 2200
   UserKnownHostsFile /dev/null
   StrictHostKeyChecking no
   PasswordAuthentication no
-  IdentityFile /home/elliot/Documents/traffic-steering/vagrant/.vagrant/machines/vm2/virtualbox/private_key
+  IdentityFile /home/elliot/Documents/traffic-steering/vagrant/.vagrant/machines/ns2/virtualbox/private_key
   IdentitiesOnly yes
   LogLevel FATAL
   PubkeyAcceptedKeyTypes +ssh-rsa

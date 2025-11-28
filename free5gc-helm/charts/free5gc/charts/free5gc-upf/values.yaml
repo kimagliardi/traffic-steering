@@ -104,7 +104,7 @@ upf:
     failureThreshold: 3
     successThreshold: 1
   nodeSelector:
-    kubernetes.io/hostname: vm2
+    kubernetes.io/hostname: ns2
   tolerations: []
   affinity: {}
   autoscaling:
@@ -175,7 +175,7 @@ upf1:
     failureThreshold: 3
     successThreshold: 1
   nodeSelector:
-    kubernetes.io/hostname: vm2
+    kubernetes.io/hostname: ns2
   tolerations: []
   affinity: {}
   autoscaling:
@@ -245,7 +245,7 @@ upf2:
     failureThreshold: 3
     successThreshold: 1
   nodeSelector:
-    kubernetes.io/hostname: vm2
+    kubernetes.io/hostname: ns2
   tolerations: []
   affinity: {}
   autoscaling:
@@ -317,7 +317,7 @@ upfb:
     failureThreshold: 3
     successThreshold: 1
   nodeSelector:
-     kubernetes.io/hostname: vm2
+     kubernetes.io/hostname: ns2
   tolerations: []
   affinity: {}
   autoscaling:
