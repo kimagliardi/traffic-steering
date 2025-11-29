@@ -13,7 +13,8 @@
 # Default values for free5gcUserPlane chart.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
-
+nameOverride: ""
+fullnameOverride: ""
 
 global:
   projectName: free5gc
@@ -57,76 +58,6 @@ global:
     gatewayIP: 10.100.50.230
     excludeIP: 10.100.50.230
 
-upf:
-  name: upf
-  replicaCount: 1
-  image:
-    name: free5gc/upf
-    tag: v3.4.5
-    pullPolicy: IfNotPresent
-  configmap:
-    wrapperAdditionalCommands: ""
-    # wrapperAdditionalCommands: |
-    #   echo "123" > /tmp/123
-  volume:
-    mount: /free5gc/config/
-    tlsmount: /free5gc/config/TLS
-
-  # network paramters
-  n3if:  # GTP-U
-    ipAddress: 10.100.50.233
-  n4if:  # PFCP
-    ipAddress: 10.100.50.241
-  n6if:  # DN
-    ipAddress: 10.100.100.12
-
-  podAnnotations: {}
-    # additional annotations
-  imagePullSecrets: []
-  podSecurityContext: {}
-  securityContext:
-    capabilities:
-      add: ["NET_ADMIN"]
-  resources:
-    requests:
-      cpu: 500m
-      memory: 512Mi
-  readinessProbe:
-    initialDelaySeconds: 0
-    periodSeconds: 1
-    timeoutSeconds: 1
-    failureThreshold:  40
-    successThreshold: 1
-  livenessProbe:
-    initialDelaySeconds: 120
-    periodSeconds: 10
-    timeoutSeconds: 10
-    failureThreshold: 3
-    successThreshold: 1
-  nodeSelector:
-    kubernetes.io/hostname: ns2
-  tolerations: []
-  affinity: {}
-  autoscaling:
-    enabled: false
-    minReplicas: 1
-    maxReplicas: 100
-    targetCPUUtilizationPercentage: 80
-    # targetMemoryUtilizationPercentage: 80
-  configuration:
-    dnnList: # The DNN list supported by UPF
-      - dnn: internet # Data Network Name
-        cidr: 10.1.0.0/17 # Classless Inter-Domain Routing for assigned IPv4 pool of UE
-        # natifname: n6
-      - dnn: internet # Data Network Name
-        cidr: 10.1.128.0/17 # Classless Inter-Domain Routing for assigned IPv4 pool of UE
-        # natifname: n6
-
-    logger: # log output setting
-      enable: true # true or false
-      level: info # how detailed to output, value: trace, debug, info, warn, error, fatal, panic
-      reportCaller: false # enable the caller report or not, value: true or false
-
 # The followed values will be considered in the case of choosing "ulcl" architecture for the user plane
 upf1:
   name: upf1
@@ -145,9 +76,9 @@ upf1:
 
   # network paramters
   n9if:  # GTP-U
-    ipAddress: 10.100.50.226
+    ipAddress: 10.100.50.227
   n4if:  # PFCP
-    ipAddress: 10.100.50.242
+    ipAddress: 10.100.50.243
   n6if:  # DN
     ipAddress: 10.0.2.13
 
@@ -189,9 +120,6 @@ upf1:
       - dnn: internet # Data Network Name
         cidr: 10.1.0.0/17 # Classless Inter-Domain Routing for assigned IPv4 pool of UE
         # natifname: n6
-      - dnn: internet # Data Network Name
-        cidr: 10.1.128.0/17 # Classless Inter-Domain Routing for assigned IPv4 pool of UE
-        # natifname: n6
 
     logger: # log output setting
       enable: true # true or false
@@ -215,9 +143,9 @@ upf2:
 
   # network paramters
   n9if:  # GTP-U
-    ipAddress: 10.100.50.227
+    ipAddress: 10.100.50.228
   n4if:  # PFCP
-    ipAddress: 10.100.50.243
+    ipAddress: 10.100.50.245
   n6if:  # DN
     ipAddress: 10.0.2.14
 
@@ -256,10 +184,7 @@ upf2:
     # targetMemoryUtilizationPercentage: 80
   configuration:
     dnnList: # The DNN list supported by UPF
-      - dnn: internet # Data Network Name
-        cidr: 10.1.0.0/17 # Classless Inter-Domain Routing for assigned IPv4 pool of UE
-        # natifname: n6
-      - dnn: internet # Data Network Name
+      - dnn: internet2 # Data Network Name
         cidr: 10.1.128.0/17 # Classless Inter-Domain Routing for assigned IPv4 pool of UE
         # natifname: n6
 
@@ -331,7 +256,73 @@ upfb:
       - dnn: internet # Data Network Name
         cidr: 10.1.0.0/17 # Classless Inter-Domain Routing for assigned IPv4 pool of UE
         # natifname: n6
-      - dnn: internet # Data Network Name
+
+    logger: # log output setting
+      enable: true # true or false
+      level: info # how detailed to output, value: trace, debug, info, warn, error, fatal, panic
+      reportCaller: false # enable the caller report or not, value: true or false
+
+upfb2:
+  name: upfb2
+  replicaCount: 1
+  image:
+    name: localhost:32000/free5gc/upf
+    tag: v3.4.5
+    pullPolicy: IfNotPresent
+  configmap:
+    wrapperAdditionalCommands: ""
+    # wrapperAdditionalCommands: |
+    #   echo "123" > /tmp/123
+  volume:
+    mount: /free5gc/config/
+    tlsmount: /free5gc/config/TLS
+
+  # network paramters
+  n3if:  # GTP-U
+    ipAddress: 192.168.56.38
+  n9if:  # GTP-U
+    ipAddress: 10.100.50.226
+  n4if:  # PFCP
+    ipAddress: 10.100.50.242
+  n6if:  # DN
+    ipAddress: 10.0.2.16
+
+  podAnnotations: {}
+    # additional annotations
+  imagePullSecrets: []
+  podSecurityContext: {}
+  securityContext:
+    capabilities:
+      add: ["NET_ADMIN"]
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  readinessProbe:
+    initialDelaySeconds: 0
+    periodSeconds: 1
+    timeoutSeconds: 1
+    failureThreshold:  40
+    successThreshold: 1
+  livenessProbe:
+    initialDelaySeconds: 120
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 3
+    successThreshold: 1
+  nodeSelector:
+    kubernetes.io/hostname: ns2
+  tolerations: []
+  affinity: {}
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 100
+    targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: 80
+  configuration:
+    dnnList: # The DNN list supported by UPF
+      - dnn: internet2 # Data Network Name
         cidr: 10.1.128.0/17 # Classless Inter-Domain Routing for assigned IPv4 pool of UE
         # natifname: n6
 

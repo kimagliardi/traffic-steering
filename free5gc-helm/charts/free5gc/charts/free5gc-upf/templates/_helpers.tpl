@@ -63,10 +63,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
-UPF Pod Annotations
+UPFb Pod Annotations
 */}}
-{{- define "free5gc-upf.upfAnnotations" -}}
-{{- with .Values.upf }}
+{{- define "free5gc-upf.upfbAnnotations" -}}
+{{- with .Values.upfb }}
 {{- if .podAnnotations }}
 {{- toYaml .podAnnotations }}
 {{- end }}
@@ -74,10 +74,10 @@ UPF Pod Annotations
 {{- end }}
 
 {{/*
-UPFb Pod Annotations
+UPFb2 Pod Annotations
 */}}
-{{- define "free5gc-upf.upfbAnnotations" -}}
-{{- with .Values.upfb }}
+{{- define "free5gc-upf.upfb2Annotations" -}}
+{{- with .Values.upfb2 }}
 {{- if .podAnnotations }}
 {{- toYaml .podAnnotations }}
 {{- end }}
@@ -105,4 +105,3 @@ UPF2 Pod Annotations
 {{- end }}
 {{- end }}
 {{- end }}
-

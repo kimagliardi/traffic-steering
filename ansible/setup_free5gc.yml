@@ -374,6 +374,9 @@
 - name: Configure UE/RAN Node (VM3)
   hosts: ue_node
   become: yes
+  vars:
+    # OAI MEC Platform Gateway IP - adjust this to your deployment
+    oai_mep_gateway_ip: "10.0.2.6"
   tasks:
     - name: Install UERANSIM build dependencies
       apt:
@@ -390,6 +393,19 @@
       snap:
         name: cmake
         classic: yes
+
+    # --- OAI MEC App Service DNS Configuration ---
+    # Reference: https://free5gc.org/blog/20250625/20250625/
+    # When a UE uses the OAI MEC App Service, it needs to resolve oai-mep.org
+    - name: Add OAI MEP Gateway to /etc/hosts for MEC App service discovery
+      lineinfile:
+        path: /etc/hosts
+        line: "{{ oai_mep_gateway_ip }} oai-mep.org"
+        regexp: '.*oai-mep\.org$'
+        state: present
+      tags:
+        - oai-mec
+        - hosts
 
     - name: Ensure UERANSIM folder exists (shared via Vagrant)
       file:
