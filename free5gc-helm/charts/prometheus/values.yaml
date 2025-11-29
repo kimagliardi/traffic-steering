@@ -1,0 +1,23 @@
+image:
+  repository: prom/prometheus
+  tag: "v2.48.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  type: NodePort
+  port: 9090
+  nodePort: 30090
+
+resources: {}
+
+prometheus:
+  scrape_interval: 15s
+  retention: 6h
+
+rbac:
+  create: true
+
+podSecurity:
+  enabled: false

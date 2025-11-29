@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "prometheus.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "prometheus.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "prometheus.fullname" . }}
+    spec:
+      serviceAccountName: {{ include "prometheus.fullname" . }}
+      containers:
+        - name: prometheus
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus"
+            - "--web.listen-address=0.0.0.0:9090"
+            - "--storage.tsdb.retention.time={{ .Values.prometheus.retention }}"
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+            - name: data
+              mountPath: /prometheus
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "prometheus.fullname" . }}-config
+        - name: data
+          emptyDir: {}

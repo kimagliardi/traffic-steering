@@ -1,0 +1,6 @@
+apiVersion: v2
+name: prometheus
+description: A minimal Prometheus deployment tailored for this repo (scrapes kubelet cAdvisor)
+type: application
+version: 0.1.0
+appVersion: "2.48.0"
