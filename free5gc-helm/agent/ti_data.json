@@ -1,0 +1,23 @@
+{
+    "afServiceId": "Service1",
+    "dnn": "internet",
+    "snssai": {
+        "sst": 1,
+        "sd": "010203"
+    },
+    "anyUeInd": true,
+    "notificationDestination": "http://traffic-steering-agent.free5gc.svc.cluster.local:80/callback",
+    "trafficFilters": [
+        {
+            "flowId": 1,
+            "flowDescriptions": [
+                "permit out ip from 10.0.2.105 to 10.1.0.0/24"
+            ]
+        }
+    ],
+    "trafficRoutes": [
+        {
+            "dnai": "mec"
+        }
+    ]
+}
