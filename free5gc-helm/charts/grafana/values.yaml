@@ -1,0 +1,22 @@
+image:
+  repository: grafana/grafana
+  tag: "10.2.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  type: NodePort
+  port: 3000
+  nodePort: 30030
+
+# Admin credentials
+adminUser: admin
+adminPassword: admin
+
+# Prometheus datasource
+datasources:
+  prometheus:
+    url: "http://prometheus-prometheus:9090"
+
+resources: {}

@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "grafana.fullname" . }}
+  labels:
+    {{- include "grafana.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "grafana.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "grafana.fullname" . }}
+    spec:
+      containers:
+        - name: grafana
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 3000
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: "{{ .Values.adminUser }}"
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: "{{ .Values.adminPassword }}"
+            - name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH
+              value: "/var/lib/grafana/dashboards/network-dashboard.json"
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboards-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+          {{- if .Values.resources }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: datasources
+          configMap:
+            name: {{ include "grafana.fullname" . }}-datasources
+        - name: dashboards-provider
+          configMap:
+            name: {{ include "grafana.fullname" . }}-dashboards-provider
+        - name: dashboards
+          configMap:
+            name: {{ include "grafana.fullname" . }}-dashboards
