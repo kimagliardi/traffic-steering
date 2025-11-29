@@ -32,7 +32,7 @@ global:
       ipAddress: 10.100.50.249
     service:
       ngap:
-        enabled: false
+        enabled: true
         name: amf-n2
         port: 38412
         nodeport: 31412
@@ -141,6 +141,10 @@ amf:
             mcc: 208
             mnc: 93
           tac: 000001
+        - plmnId:
+            mcc: 208
+            mnc: 93
+          tac: 000004      
       plmnSupportList:
         - plmnId:
             mcc: 208
@@ -152,6 +156,7 @@ amf:
               sd: 112233
       supportDnnList:
         - internet
+        - internet2
       security:
         integrityOrder:
           - NIA2
