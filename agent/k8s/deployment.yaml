@@ -1,0 +1,227 @@
+---
+# Namespace (if not using free5gc namespace)
+# apiVersion: v1
+# kind: Namespace
+# metadata:
+#   name: traffic-steering
+
+---
+# ConfigMap for agent configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: traffic-steering-agent-config
+  namespace: free5gc
+  labels:
+    app: traffic-steering-agent
+data:
+  # Kubernetes settings
+  K8S_NAMESPACE: "free5gc"
+  KUBECTL_CMD: "kubectl"
+  USE_VAGRANT: "false"
+  
+  # NEF Configuration
+  # Use ClusterIP directly for reliability
+  NEF_URL: "http://10.152.183.162:80"
+  AF_ID: "traffic-steering-agent"
+  
+  # Prometheus - ClusterIP in free5gc namespace
+  PROMETHEUS_URL: "http://10.152.183.180:9090"
+  
+  # Traffic Steering
+  DNN: "internet"
+  SST: "1"
+  SD: "010203"
+  
+  # LLM Configuration
+  OLLAMA_API_BASE: "http://192.168.0.128:11434"
+  LLM_MODEL: "qwen2.5-coder"
+  
+  # UERANSIM VM (external to cluster)
+  UERANSIM_HOST: "192.168.56.118"
+  UERANSIM_USER: "vagrant"
+  UERANSIM_PATH: "~/ue/UERANSIM"
+
+---
+# Secret for SSH key to UERANSIM VM
+apiVersion: v1
+kind: Secret
+metadata:
+  name: traffic-steering-agent-ssh
+  namespace: free5gc
+  labels:
+    app: traffic-steering-agent
+type: Opaque
+stringData:
+  # Replace with your actual SSH private key
+  # Or mount from existing secret
+  ssh-private-key: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    # Your SSH private key here
+    -----END OPENSSH PRIVATE KEY-----
+
+---
+# ServiceAccount for the agent
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: traffic-steering-agent
+  namespace: free5gc
+  labels:
+    app: traffic-steering-agent
+
+---
+# Role for managing pods in free5gc namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: traffic-steering-agent-role
+  namespace: free5gc
+rules:
+  # Pod management (for restarting UPFs, SMF, etc.)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "delete"]
+  
+  # Pod logs (for debugging)
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list"]
+  
+  # Deployments (for rollout restart)
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "patch"]
+  
+  # ReplicaSets (for scaling)
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list", "patch", "update"]
+  
+  # Services (for getting NEF service IP)
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list"]
+  
+  # ConfigMaps (for reading configuration)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: traffic-steering-agent-rolebinding
+  namespace: free5gc
+subjects:
+  - kind: ServiceAccount
+    name: traffic-steering-agent
+    namespace: free5gc
+roleRef:
+  kind: Role
+  name: traffic-steering-agent-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traffic-steering-agent
+  namespace: free5gc
+  labels:
+    app: traffic-steering-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: traffic-steering-agent
+  template:
+    metadata:
+      labels:
+        app: traffic-steering-agent
+    spec:
+      serviceAccountName: traffic-steering-agent
+      
+      # Run on a node that can reach UERANSIM VM
+      # Uncomment and adjust if needed
+      # nodeSelector:
+      #   kubernetes.io/hostname: ns
+      
+      containers:
+        - name: agent
+          image: traffic-steering-agent:latest
+          imagePullPolicy: Never
+          
+          # Environment from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: traffic-steering-agent-config
+          
+          # Additional environment variables
+          env:
+            - name: UERANSIM_KEY
+              value: "/app/ssh/ssh-private-key"
+          
+          # Resource limits
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          
+          # Volume mounts
+          volumeMounts:
+            - name: ssh-key
+              mountPath: /app/ssh
+              readOnly: true
+          
+          # Liveness probe
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import requests; requests.get('http://localhost:8080/health', timeout=5)"
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 10
+          
+          # Readiness probe
+          readinessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "print('ready')"
+            initialDelaySeconds: 10
+            periodSeconds: 30
+      
+      volumes:
+        - name: ssh-key
+          secret:
+            secretName: traffic-steering-agent-ssh
+            defaultMode: 0400
+
+---
+# Optional: Service for API access to the agent
+apiVersion: v1
+kind: Service
+metadata:
+  name: traffic-steering-agent
+  namespace: free5gc
+  labels:
+    app: traffic-steering-agent
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: traffic-steering-agent

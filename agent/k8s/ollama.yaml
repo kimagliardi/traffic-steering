@@ -1,0 +1,126 @@
+---
+# Ollama deployment for LLM inference
+# Deploy this if you don't have Ollama running elsewhere
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ollama
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-data
+  namespace: ollama
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: ollama
+  labels:
+    app: ollama
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      containers:
+        - name: ollama
+          image: ollama/ollama:latest
+          ports:
+            - containerPort: 11434
+              name: http
+          
+          resources:
+            requests:
+              memory: "4Gi"
+              cpu: "2"
+            limits:
+              memory: "8Gi"
+              cpu: "4"
+              # Uncomment for GPU support
+              # nvidia.com/gpu: 1
+          
+          volumeMounts:
+            - name: ollama-data
+              mountPath: /root/.ollama
+          
+          env:
+            - name: OLLAMA_HOST
+              value: "0.0.0.0"
+          
+          livenessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          
+          readinessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      
+      volumes:
+        - name: ollama-data
+          persistentVolumeClaim:
+            claimName: ollama-data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: ollama
+spec:
+  type: ClusterIP
+  ports:
+    - port: 11434
+      targetPort: 11434
+      protocol: TCP
+      name: http
+  selector:
+    app: ollama
+
+---
+# Job to pull the model (run once after Ollama is up)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ollama-pull-model
+  namespace: ollama
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: pull-model
+          image: curlimages/curl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for Ollama to be ready..."
+              until curl -s http://ollama:11434/api/tags > /dev/null; do
+                sleep 5
+              done
+              echo "Pulling qwen2.5-coder model..."
+              curl -X POST http://ollama:11434/api/pull -d '{"name": "qwen2.5-coder"}'
+              echo "Done!"

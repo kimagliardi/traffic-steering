@@ -1,0 +1,17 @@
+# Requirements for LLM-powered Traffic Steering Agent
+
+# HTTP requests
+requests>=2.25.0
+
+# Web server
+flask>=2.0.0
+
+# LLM Agent Framework
+smolagents>=1.0.0
+litellm>=1.0.0
+
+# YAML parsing (for API specs)
+pyyaml>=6.0
+
+# Kubernetes client (for in-cluster operations)
+kubernetes>=28.0.0
