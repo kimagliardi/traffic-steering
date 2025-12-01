@@ -1,0 +1,53 @@
+# Traffic Steering LLM Agent
+# Multi-stage build for smaller image
+
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements-llm.txt .
+RUN pip install --no-cache-dir --user -r requirements-llm.txt
+
+# Final stage
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install runtime dependencies (for SSH to UERANSIM VM)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssh-client \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy installed packages from builder
+COPY --from=builder /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
+
+# Copy application code
+COPY traffic_steering_llm_agent.py .
+COPY tools.py .
+
+# Create non-root user (optional, comment out if you need root for SSH)
+# RUN useradd -m -u 1000 agent
+# USER agent
+
+# Environment variables (can be overridden by ConfigMap/Secrets)
+ENV PYTHONUNBUFFERED=1
+ENV K8S_NAMESPACE=free5gc
+ENV KUBECTL_CMD="kubectl"
+ENV USE_VAGRANT=false
+ENV OLLAMA_API_BASE=http://ollama:11434
+ENV LLM_MODEL=qwen2.5-coder
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import requests; requests.get('${OLLAMA_API_BASE}/api/tags', timeout=5)" || exit 1
+
+# Run the agent
+CMD ["python", "traffic_steering_llm_agent.py"]

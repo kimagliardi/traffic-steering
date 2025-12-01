@@ -1,0 +1,14 @@
+# Traffic Steering Agent Dependencies
+
+# HTTP requests
+requests>=2.25.0
+
+# LLM Agent Framework (smolagents)
+smolagents>=1.0.0
+litellm>=1.0.0
+
+# Optional: For enhanced monitoring
+# prometheus-client>=0.14.0
+
+# Optional: MongoDB direct access (if needed)
+# pymongo>=4.0.0

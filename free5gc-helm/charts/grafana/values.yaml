@@ -1,5 +1,5 @@
 image:
-  repository: grafana/grafana
+  repository: localhost:32000/grafana
   tag: "10.2.0"
   pullPolicy: IfNotPresent
 
