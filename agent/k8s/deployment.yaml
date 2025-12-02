@@ -37,6 +37,12 @@ data:
   OLLAMA_API_BASE: "http://192.168.0.128:11434"
   LLM_MODEL: "qwen2.5-coder"
   
+  # Auto-Steering Configuration
+  AUTO_STEER_ENABLED: "true"
+  AUTO_STEER_INTERVAL: "30"              # Check every 30 seconds
+  AUTO_STEER_THRESHOLD_BPS: "50000"      # 50 KB/s threshold (low for testing)
+  AUTO_STEER_COOLDOWN: "60"              # Wait 60s between steers
+  
   # UERANSIM VM (external to cluster)
   UERANSIM_HOST: "192.168.56.118"
   UERANSIM_USER: "vagrant"
@@ -208,7 +214,7 @@ spec:
             defaultMode: 0400
 
 ---
-# Optional: Service for API access to the agent
+# Service for API access to the agent
 apiVersion: v1
 kind: Service
 metadata:
@@ -216,6 +222,11 @@ metadata:
   namespace: free5gc
   labels:
     app: traffic-steering-agent
+  annotations:
+    # Prometheus auto-discovery annotations
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/agent-metrics"
 spec:
   type: ClusterIP
   ports:

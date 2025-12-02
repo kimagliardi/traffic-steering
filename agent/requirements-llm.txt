@@ -6,6 +6,9 @@ requests>=2.25.0
 # Web server
 flask>=2.0.0
 
+# Prometheus metrics client
+prometheus-client>=0.20.0
+
 # LLM Agent Framework
 smolagents>=1.0.0
 litellm>=1.0.0

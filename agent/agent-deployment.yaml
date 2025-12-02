@@ -47,7 +47,7 @@ spec:
         - name: OLLAMA_HOST
           value: "http://ollama-service:11434"
         - name: OLLAMA_MODEL
-          value: "qwen2.5-coder"
+          value: "qwen3"
         - name: PROMETHEUS_URL
           value: "http://prometheus-server.free5gc.svc.cluster.local:80"
         - name: CENTRAL_UPF_IP
