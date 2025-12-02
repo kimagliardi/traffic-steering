@@ -438,7 +438,7 @@ class AutoSteeringMonitor:
     """
     
     def __init__(self):
-        self.current_target = "edge1"  # Start with edge1
+        self.current_target = None  # Start with no active policy
         self.last_steer_time = 0
         self.running = False
         self.thread = None
@@ -446,13 +446,37 @@ class AutoSteeringMonitor:
         
         # Set threshold gauge
         AUTO_STEER_THRESHOLD.set(CONFIG.auto_steer_threshold_bps)
-        CURRENT_TARGET.set(1)  # Start with edge1
+        CURRENT_TARGET.set(0)  # Start with no policy (0=none, 1=edge1, 2=edge2)
         
         print(f"📊 Auto-steering config:")
         print(f"   Enabled: {CONFIG.auto_steer_enabled}")
         print(f"   Interval: {CONFIG.auto_steer_interval}s")
         print(f"   Threshold: {CONFIG.auto_steer_threshold_bps/1000:.1f} KB/s")
         print(f"   Cooldown: {CONFIG.auto_steer_cooldown}s")
+    
+    def get_active_policy(self) -> str | None:
+        """
+        Check NEF for any active traffic influence subscriptions.
+        Returns 'edge1', 'edge2', or None if no active policy.
+        """
+        base_url = f"{CONFIG.nef_url}/3gpp-traffic-influence/v1/{CONFIG.af_id}/subscriptions"
+        
+        try:
+            resp = requests.get(base_url, timeout=10)
+            if resp.status_code == 200:
+                subs = resp.json() if resp.text and resp.text != "null" else []
+                if subs and len(subs) > 0:
+                    # Check the first subscription's target DNAI
+                    for sub in subs:
+                        routes = sub.get("trafficRoutes", [])
+                        for route in routes:
+                            dnai = route.get("dnai", "").lower()
+                            if dnai in ["edge1", "edge2"]:
+                                return dnai
+            return None
+        except Exception as e:
+            print(f"⚠️  Error checking active policy: {e}")
+            return None
     
     def get_upf_traffic_rates(self) -> dict:
         """Query Prometheus for UPF traffic rates (bytes/sec)"""
@@ -497,24 +521,66 @@ class AutoSteeringMonitor:
     def should_steer(self, rates: dict) -> str | None:
         """
         Determine if we should steer and to which target.
+        
+        Logic:
+        - First check if there's already an active policy in NEF
+        - If no policy and UPFB exceeds threshold, steer to edge with lower traffic
+        - If policy exists and that edge exceeds threshold, rebalance to other edge
+        
         Returns target to steer to, or None if no steering needed.
         """
-        current_rate = rates.get(self.current_target, 0)
-        other_target = "edge2" if self.current_target == "edge1" else "edge1"
-        other_rate = rates.get(other_target, 0)
+        edge1_rate = rates.get("edge1", 0)
+        edge2_rate = rates.get("edge2", 0)
+        upfb_rate = rates.get("upfb", 0)
         
         # Check cooldown
         time_since_last_steer = time.time() - self.last_steer_time
         if time_since_last_steer < CONFIG.auto_steer_cooldown:
             return None
         
-        # Check if current target exceeds threshold
-        if current_rate > CONFIG.auto_steer_threshold_bps:
-            # Only steer if the other UPF has less load
-            if other_rate < current_rate:
-                print(f"🔄 Threshold exceeded! {self.current_target}: {current_rate/1000:.1f} KB/s > {CONFIG.auto_steer_threshold_bps/1000:.1f} KB/s")
-                print(f"   {other_target} has lower load: {other_rate/1000:.1f} KB/s")
-                return other_target
+        threshold = CONFIG.auto_steer_threshold_bps
+        
+        # Check for active policy in NEF
+        active_policy = self.get_active_policy()
+        
+        # Update current_target based on actual NEF state
+        if active_policy != self.current_target:
+            print(f"📋 Policy state updated: {self.current_target} → {active_policy or 'none'}")
+            self.current_target = active_policy
+            if active_policy == "edge1":
+                CURRENT_TARGET.set(1)
+            elif active_policy == "edge2":
+                CURRENT_TARGET.set(2)
+            else:
+                CURRENT_TARGET.set(0)
+        
+        # Case 1: No active policy - traffic flows through UPFB
+        if active_policy is None:
+            if upfb_rate > threshold:
+                # Pick the edge UPF with lower traffic
+                if edge1_rate <= edge2_rate:
+                    target = "edge1"
+                    target_rate = edge1_rate
+                else:
+                    target = "edge2"
+                    target_rate = edge2_rate
+                
+                print(f"🔄 No policy active, UPFB threshold exceeded! upfb: {upfb_rate/1000:.1f} KB/s > {threshold/1000:.1f} KB/s")
+                print(f"   Steering to {target} (current load: {target_rate/1000:.1f} KB/s)")
+                return target
+            return None
+        
+        # Case 2: Active policy exists - check if rebalancing is needed
+        current_edge_rate = edge1_rate if active_policy == "edge1" else edge2_rate
+        other_edge = "edge2" if active_policy == "edge1" else "edge1"
+        other_edge_rate = edge2_rate if active_policy == "edge1" else edge1_rate
+        
+        if current_edge_rate > threshold:
+            # Only rebalance if other edge has significantly lower traffic
+            if other_edge_rate < current_edge_rate * 0.8:  # 20% lower
+                print(f"🔄 Active policy on {active_policy}, threshold exceeded! {active_policy}: {current_edge_rate/1000:.1f} KB/s > {threshold/1000:.1f} KB/s")
+                print(f"   Rebalancing to {other_edge} (current load: {other_edge_rate/1000:.1f} KB/s)")
+                return other_edge
         
         return None
     
@@ -547,8 +613,9 @@ class AutoSteeringMonitor:
                 # Get current traffic rates
                 rates = self.get_upf_traffic_rates()
                 
-                # Log current status periodically (include UPFB)
-                print(f"📈 Traffic rates - edge1: {rates['edge1']/1000:.1f} KB/s, edge2: {rates['edge2']/1000:.1f} KB/s, upfb: {rates['upfb']/1000:.1f} KB/s (current: {self.current_target})")
+                # Log current status periodically (include UPFB and active policy)
+                policy_str = self.current_target if self.current_target else "none"
+                print(f"📈 Traffic rates - edge1: {rates['edge1']/1000:.1f} KB/s, edge2: {rates['edge2']/1000:.1f} KB/s, upfb: {rates['upfb']/1000:.1f} KB/s (policy: {policy_str})")
                 
                 # Check if steering is needed
                 new_target = self.should_steer(rates)
