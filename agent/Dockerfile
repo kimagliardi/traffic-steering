@@ -19,6 +19,5 @@ COPY *.py .
 # Expose ports: 8080 for API, 8000 for metrics
 EXPOSE 8080 8000
 
-# Default: run the API server
-# Override with CMD ["python", "main.py"] to run the AI agent loop
-CMD ["python", "api.py"]
+# Run the LLM-powered traffic steering agent
+CMD ["python", "traffic_steering_llm_agent.py"]

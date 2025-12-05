@@ -16,13 +16,13 @@ spec:
         app: traffic-steering-agent
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8000"
-        prometheus.io/path: "/"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/agent-metrics"
     spec:
       containers:
       - name: agent
-        image: localhost:32000/traffic-steering-agent:v1
-        imagePullPolicy: Always
+        image: localhost:32000/traffic-steering-agent:v3
+        imagePullPolicy: Never
         ports:
         - containerPort: 8080
           name: http
@@ -31,7 +31,7 @@ spec:
         env:
         # NEF Configuration
         - name: NEF_URL
-          value: "http://nef-service.free5gc.svc.cluster.local:80"
+          value: "http://free5gc-v1-free5gc-nef-service.free5gc.svc.cluster.local:80"
         - name: AF_ID
           value: "af001"
         # Network Slice Configuration
@@ -43,13 +43,13 @@ spec:
           value: "010203"
         - name: UE_SUBNET
           value: "10.1.0.0/24"
-        # For AI agent mode (main.py)
-        - name: OLLAMA_HOST
-          value: "http://ollama-service:11434"
-        - name: OLLAMA_MODEL
+        # For LLM agent mode (traffic_steering_llm_agent.py)
+        - name: OLLAMA_API_BASE
+          value: "http://192.168.0.128:11434"
+        - name: LLM_MODEL
           value: "qwen3"
         - name: PROMETHEUS_URL
-          value: "http://prometheus-server.free5gc.svc.cluster.local:80"
+          value: "http://prometheus-prometheus.free5gc.svc.cluster.local:9090"
         - name: CENTRAL_UPF_IP
           value: "192.168.56.101"
         - name: EDGE_UPF_IP
@@ -87,8 +87,8 @@ spec:
     targetPort: 8080
     protocol: TCP
     name: http
-  - port: 8000
-    targetPort: 8000
+  - port: 8080
+    targetPort: 8080
     protocol: TCP
     name: metrics
   selector:

@@ -429,26 +429,27 @@ class TrafficSteeringAgent:
 
 class AutoSteeringMonitor:
     """
-    Background monitor that automatically steers traffic when load threshold is exceeded.
+    Background monitor that uses LLM to make intelligent traffic steering decisions.
     
     Logic:
-    - Monitors traffic rate on UPF1 (edge1) and UPF2 (edge2)
-    - If current target's traffic exceeds threshold, steer to the other UPF
+    - Periodically queries UPF traffic metrics
+    - Asks the LLM agent to analyze the situation and decide if steering is needed
+    - LLM has access to metrics and steering tools to make autonomous decisions
     - Has cooldown to prevent flapping
     """
     
-    def __init__(self):
+    def __init__(self, agent):
+        self.agent = agent  # LLM agent that will make steering decisions
         self.current_target = None  # Start with no active policy
         self.last_steer_time = 0
         self.running = False
         self.thread = None
-        self.steer_tool = SteerTrafficTool()
         
         # Set threshold gauge
         AUTO_STEER_THRESHOLD.set(CONFIG.auto_steer_threshold_bps)
         CURRENT_TARGET.set(0)  # Start with no policy (0=none, 1=edge1, 2=edge2)
         
-        print(f"📊 Auto-steering config:")
+        print(f"📊 Auto-steering config (LLM-driven):")
         print(f"   Enabled: {CONFIG.auto_steer_enabled}")
         print(f"   Interval: {CONFIG.auto_steer_interval}s")
         print(f"   Threshold: {CONFIG.auto_steer_threshold_bps/1000:.1f} KB/s")
@@ -518,32 +519,37 @@ class AutoSteeringMonitor:
         
         return rates
     
-    def should_steer(self, rates: dict) -> str | None:
+    def format_metrics_summary(self, rates: dict) -> str:
+        """Format current metrics into a human-readable summary for the LLM"""
+        edge1_kb = rates["edge1"] / 1000
+        edge2_kb = rates["edge2"] / 1000
+        upfb_kb = rates["upfb"] / 1000
+        threshold_kb = CONFIG.auto_steer_threshold_bps / 1000
+        
+        summary = f"""Current UPF Traffic Status:
+- Edge1 (AnchorUPF1): {edge1_kb:.2f} KB/s
+- Edge2 (AnchorUPF2): {edge2_kb:.2f} KB/s
+- UPFB (Branching UPF): {upfb_kb:.2f} KB/s
+- Current active policy: {self.current_target or 'none'}
+- Steering threshold: {threshold_kb:.2f} KB/s
+- Time since last steer: {time.time() - self.last_steer_time:.0f} seconds
+- Cooldown period: {CONFIG.auto_steer_cooldown} seconds"""
+        
+        return summary
+    
+    def ask_llm_for_decision(self, rates: dict) -> dict:
         """
-        Determine if we should steer and to which target.
+        Ask the LLM agent to analyze metrics and decide if steering is needed.
         
-        Logic:
-        - First check if there's already an active policy in NEF
-        - If no policy and UPFB exceeds threshold, steer to edge with lower traffic
-        - If policy exists and that edge exceeds threshold, rebalance to other edge
-        
-        Returns target to steer to, or None if no steering needed.
+        Returns dict with 'should_steer' (bool) and 'target' (str or None)
         """
-        edge1_rate = rates.get("edge1", 0)
-        edge2_rate = rates.get("edge2", 0)
-        upfb_rate = rates.get("upfb", 0)
-        
-        # Check cooldown
+        # Check cooldown first
         time_since_last_steer = time.time() - self.last_steer_time
         if time_since_last_steer < CONFIG.auto_steer_cooldown:
-            return None
+            return {"should_steer": False, "target": None, "reason": "cooldown"}
         
-        threshold = CONFIG.auto_steer_threshold_bps
-        
-        # Check for active policy in NEF
+        # Update current policy state
         active_policy = self.get_active_policy()
-        
-        # Update current_target based on actual NEF state
         if active_policy != self.current_target:
             print(f"📋 Policy state updated: {self.current_target} → {active_policy or 'none'}")
             self.current_target = active_policy
@@ -554,59 +560,86 @@ class AutoSteeringMonitor:
             else:
                 CURRENT_TARGET.set(0)
         
-        # Case 1: No active policy - traffic flows through UPFB
-        if active_policy is None:
-            if upfb_rate > threshold:
-                # Pick the edge UPF with lower traffic
-                if edge1_rate <= edge2_rate:
-                    target = "edge1"
-                    target_rate = edge1_rate
-                else:
-                    target = "edge2"
-                    target_rate = edge2_rate
+        # Prepare simple metrics for LLM
+        edge1_kb = rates["edge1"] / 1000
+        edge2_kb = rates["edge2"] / 1000
+        upfb_kb = rates["upfb"] / 1000
+        threshold_kb = CONFIG.auto_steer_threshold_bps / 1000
+        
+        # Construct simplified prompt for LLM
+        prompt = f"""You are a 5G traffic steering expert. Based on these metrics, decide if traffic steering is needed.
+
+METRICS:
+- Edge1 traffic: {edge1_kb:.2f} KB/s
+- Edge2 traffic: {edge2_kb:.2f} KB/s
+- UPFB traffic: {upfb_kb:.2f} KB/s
+- Active policy: {active_policy or 'none'}
+- Threshold: {threshold_kb:.2f} KB/s
+
+RULES:
+1. If no policy exists and UPFB > threshold: steer to the edge with LOWER traffic (if equal, choose edge1)
+2. If policy exists and that edge > threshold: rebalance to the other edge (if it has 20% less traffic)
+3. Otherwise: no action needed
+
+Respond with EXACTLY one word:
+- edge1 (to steer to edge1)
+- edge2 (to steer to edge2)
+- none (no steering needed)
+
+IMPORTANT: If UPFB traffic exceeds threshold and no policy exists, you MUST choose edge1 or edge2, NOT none!
+
+Your decision:"""
+        
+        try:
+            # Ask LLM for decision
+            print(f"🤖 Asking LLM for steering decision...")
+            response = self.agent.process(prompt)
+            response_clean = response.strip().lower()
+            
+            # Extract just the decision word
+            if "edge1" in response_clean:
+                print(f"🤖 LLM decision: STEER edge1")
+                return {"should_steer": True, "target": "edge1", "reason": "llm_decision"}
+            elif "edge2" in response_clean:
+                print(f"🤖 LLM decision: STEER edge2")
+                return {"should_steer": True, "target": "edge2", "reason": "llm_decision"}
+            else:
+                print(f"🤖 LLM decision: NO_STEER (response: {response_clean[:100]})")
+                return {"should_steer": False, "target": None, "reason": "llm_no_action"}
                 
-                print(f"🔄 No policy active, UPFB threshold exceeded! upfb: {upfb_rate/1000:.1f} KB/s > {threshold/1000:.1f} KB/s")
-                print(f"   Steering to {target} (current load: {target_rate/1000:.1f} KB/s)")
-                return target
-            return None
-        
-        # Case 2: Active policy exists - check if rebalancing is needed
-        current_edge_rate = edge1_rate if active_policy == "edge1" else edge2_rate
-        other_edge = "edge2" if active_policy == "edge1" else "edge1"
-        other_edge_rate = edge2_rate if active_policy == "edge1" else edge1_rate
-        
-        if current_edge_rate > threshold:
-            # Only rebalance if other edge has significantly lower traffic
-            if other_edge_rate < current_edge_rate * 0.8:  # 20% lower
-                print(f"🔄 Active policy on {active_policy}, threshold exceeded! {active_policy}: {current_edge_rate/1000:.1f} KB/s > {threshold/1000:.1f} KB/s")
-                print(f"   Rebalancing to {other_edge} (current load: {other_edge_rate/1000:.1f} KB/s)")
-                return other_edge
-        
-        return None
+        except Exception as e:
+            print(f"❌ LLM decision error: {e}")
+            return {"should_steer": False, "target": None, "reason": "error"}
     
-    def do_steer(self, target: str, reason: str = "threshold_exceeded"):
-        """Execute steering to target"""
+    def execute_steering(self, target: str, reason: str = "llm_decision"):
+        """Execute steering action using the agent's tools"""
         old_target = self.current_target
         
-        print(f"🚀 Auto-steering: {old_target} → {target}")
-        result = self.steer_tool.forward(target)
+        print(f"🚀 LLM-driven auto-steering: {old_target} → {target}")
         
-        if "✅" in result:
-            self.current_target = target
-            self.last_steer_time = time.time()
-            CURRENT_TARGET.set(1 if target == "edge1" else 2)
-            AUTO_STEER_TRIGGERS.labels(
-                from_target=old_target,
-                to_target=target,
-                reason=reason
-            ).inc()
-            print(f"✅ Auto-steer successful: now routing through {target}")
-        else:
-            print(f"❌ Auto-steer failed: {result}")
+        # Use the agent to execute steering
+        try:
+            steer_prompt = f"Steer traffic to {target}"
+            result = self.agent.process(steer_prompt)
+            
+            if "✅" in result or "success" in result.lower():
+                self.current_target = target
+                self.last_steer_time = time.time()
+                CURRENT_TARGET.set(1 if target == "edge1" else 2)
+                AUTO_STEER_TRIGGERS.labels(
+                    from_target=old_target or "none",
+                    to_target=target,
+                    reason=reason
+                ).inc()
+                print(f"✅ LLM auto-steer successful: now routing through {target}")
+            else:
+                print(f"❌ LLM auto-steer failed: {result}")
+        except Exception as e:
+            print(f"❌ Error executing steering: {e}")
     
     def monitor_loop(self):
-        """Main monitoring loop"""
-        print(f"🔍 Auto-steering monitor started (interval: {CONFIG.auto_steer_interval}s)")
+        """Main monitoring loop - uses LLM to make steering decisions"""
+        print(f"🔍 LLM-driven auto-steering monitor started (interval: {CONFIG.auto_steer_interval}s)")
         
         while self.running:
             try:
@@ -617,10 +650,13 @@ class AutoSteeringMonitor:
                 policy_str = self.current_target if self.current_target else "none"
                 print(f"📈 Traffic rates - edge1: {rates['edge1']/1000:.1f} KB/s, edge2: {rates['edge2']/1000:.1f} KB/s, upfb: {rates['upfb']/1000:.1f} KB/s (policy: {policy_str})")
                 
-                # Check if steering is needed
-                new_target = self.should_steer(rates)
-                if new_target:
-                    self.do_steer(new_target)
+                # Ask LLM for steering decision
+                decision = self.ask_llm_for_decision(rates)
+                
+                if decision["should_steer"] and decision["target"]:
+                    self.execute_steering(decision["target"], decision["reason"])
+                else:
+                    print(f"🤖 LLM decision: No steering needed ({decision['reason']})")
                 
             except Exception as e:
                 print(f"⚠️  Monitor error: {e}")
@@ -825,13 +861,13 @@ def main():
     global agent, auto_monitor
     
     print("=" * 60)
-    print("🌐 Traffic Steering Agent (with Auto-Steering)")
+    print("🌐 Traffic Steering Agent (with LLM-Driven Auto-Steering)")
     print("=" * 60)
     
     agent = TrafficSteeringAgent()
     
-    # Initialize auto-steering monitor
-    auto_monitor = AutoSteeringMonitor()
+    # Initialize auto-steering monitor with the LLM agent
+    auto_monitor = AutoSteeringMonitor(agent)
     
     # Check if running in K8s
     in_k8s = os.path.exists('/var/run/secrets/kubernetes.io') or os.getenv('KUBERNETES_SERVICE_HOST')
