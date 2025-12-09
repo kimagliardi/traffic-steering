@@ -1,22 +1,27 @@
-# 5G LLM-Driven Traffic Steering Agent
+# 5G Autonomous Traffic Steering Agent
 
-**An Intelligent 5G Network that Uses LLMs to Make Real-Time Traffic Routing Decisions**
+**An Intelligent 5G Network with Automated Traffic Routing and LLM Integration (In Development)**
 
-This project demonstrates an autonomous 5G traffic steering system where a **Large Language Model (LLM)** analyzes network metrics and makes intelligent routing decisions through standard 3GPP APIs. Unlike traditional rule-based systems, the LLM interprets traffic patterns in real-time and dynamically generates Traffic Influence policies via the Network Exposure Function (NEF).
+This project demonstrates an autonomous 5G traffic steering system that monitors network metrics and makes intelligent routing decisions through standard 3GPP APIs. The system uses **free5GC v3.4.5** as the 5G core with ULCL topology, **Prometheus** for real-time metrics collection, and **NEF (Network Exposure Function)** to dynamically apply Traffic Influence policies.
 
-The system uses **Ollama (Qwen3)** as the decision-making engine, **free5GC v3.4.5** as the 5G core, **Prometheus** for metrics collection, and **UERANSIM** for UE simulation.
+**Current Status:**
+- ✅ **Production Ready**: Rule-based traffic steering with automatic threshold detection
+- 🚧 **In Development**: LLM-driven decision making using Ollama (Qwen3)
+
+The working agent monitors traffic every 30 seconds and automatically steers users to less congested edge UPFs when traffic exceeds configurable thresholds. LLM integration is being developed to enable natural language interpretation of complex network scenarios.
 
 ![Architecture Diagram](images/architecture.png)
 
 ## 🎯 Key Features
 
-- **LLM-Driven Decision Making**: Uses Qwen3 model via Ollama to interpret network metrics and decide traffic steering actions
-- **ULCL Topology**: Implements Uplink Classifier with branching and anchor UPFs for flexible traffic routing
 - **Automated Traffic Steering**: Monitors UPFB traffic every 30 seconds and automatically steers to less congested edge when threshold (100 KB/s) is exceeded
-- **Standard 3GPP APIs**: Uses NEF Traffic Influence API to apply steering policies
-- **Prometheus Integration**: Real-time metrics collection from all UPF instances
-- **Grafana Dashboard**: Visualizes traffic rates, steering decisions, and active policies
+- **ULCL Topology**: Implements Uplink Classifier with branching and anchor UPFs for flexible traffic routing
+- **Standard 3GPP APIs**: Uses NEF Traffic Influence API to apply steering policies via standard interfaces
+- **Prometheus Integration**: Real-time metrics collection from all UPF instances with custom exporters
+- **Grafana Dashboard**: Visualizes traffic rates, steering decisions, active policies, and network topology
+- **Rule-Based Logic**: Intelligent threshold detection and load balancing between edges
 - **Kubernetes-Native**: Full deployment on MicroK8s with Helm charts
+- **🚧 LLM Integration** (Coming Soon): Ollama/Qwen3 for natural language decision making
 
 ## 🏗️ Architecture
 
@@ -37,20 +42,32 @@ The system implements a **ULCL (Uplink Classifier)** topology with intelligent t
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│              LLM Traffic Steering Control Loop                  │
+│              Traffic Steering Control Loop                      │
 │                                                                 │
-│  ┌────────────┐  Metrics  ┌────────────┐  Query  ┌──────────┐ │
-│  │ Prometheus │◀─────────│  Traffic   │────────▶│  Ollama  │ │
-│  │            │  Scrape   │  Steering  │         │  (Qwen3) │ │
-│  │            │           │   Agent    │         └──────────┘ │
-│  └────────────┘           └────────────┘                       │
-│       ▲                         │                              │
-│       │                         │ NEF API                      │
-│       │                         ▼                              │
-│  ┌────────┐              ┌────────┐       ┌────────┐          │
-│  │  UPFs  │              │  NEF   │──────▶│  SMF   │          │
-│  └────────┘              └────────┘       └────────┘          │
+│  ┌────────────┐  Metrics  ┌────────────┐                      │
+│  │ Prometheus │◀─────────│  Traffic   │                       │
+│  │            │  Scrape   │  Steering  │                       │
+│  │            │  (10s)    │   Agent    │                       │
+│  └────────────┘           │            │                       │
+│       ▲                   │ (Rule-     │                       │
+│       │                   │  Based     │                       │
+│       │                   │  Logic)    │                       │
+│  ┌────────┐               └────────────┘                       │
+│  │  UPFs  │                     │                              │
+│  │ Expose │                     │ NEF API                      │
+│  │/metrics│                     ▼                              │
+│  └────────┘              ┌────────┐       ┌────────┐          │
+│                          │  NEF   │──────▶│  SMF   │          │
+│                          └────────┘       └────────┘          │
+│                           (3GPP Traffic    (PFCP Session       │
+│                            Influence API)   Updates)           │
+└─────────────────────────────────────────────────────────────────┘
 │                                                                 │
+│  🚧 Future: LLM Decision Layer (In Development)                │
+│  ┌──────────┐                                                  │
+│  │  Ollama  │◀──── Metrics Analysis ──── Traffic Agent        │
+│  │ (Qwen3)  │                                                  │
+│  └──────────┘                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
