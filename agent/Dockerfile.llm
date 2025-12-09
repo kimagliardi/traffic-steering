@@ -31,7 +31,6 @@ ENV PATH=/root/.local/bin:$PATH
 
 # Copy application code
 COPY traffic_steering_llm_agent.py .
-COPY tools.py .
 
 # Create non-root user (optional, comment out if you need root for SSH)
 # RUN useradd -m -u 1000 agent
