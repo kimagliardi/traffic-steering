@@ -4,13 +4,15 @@
 
 This project demonstrates an autonomous 5G traffic steering system that monitors network metrics and makes intelligent routing decisions through standard 3GPP APIs. The system uses **free5GC v3.4.5** as the 5G core with ULCL topology, **Prometheus** for real-time metrics collection, and **NEF (Network Exposure Function)** to dynamically apply Traffic Influence policies.
 
+This lab is built based on the free5GC traffic steering tutorials:
+- [Traffic Steering Demo Setup](https://free5gc.org/blog/20250416/20250416/)
+- [Traffic Steering Lab Guide](https://free5gc.org/blog/20250625/20250625/)
+
 **Current Status:**
-- ✅ **Production Ready**: Rule-based traffic steering with automatic threshold detection
+- ✅ **Working Version**: Rule-based traffic steering with automatic threshold detection
 - 🚧 **In Development**: LLM-driven decision making using Ollama (Qwen3)
 
 The working agent monitors traffic every 30 seconds and automatically steers users to less congested edge UPFs when traffic exceeds configurable thresholds. LLM integration is being developed to enable natural language interpretation of complex network scenarios.
-
-![Architecture Diagram](images/architecture.png)
 
 ## 🎯 Key Features
 
@@ -23,53 +25,12 @@ The working agent monitors traffic every 30 seconds and automatically steers use
 - **Kubernetes-Native**: Full deployment on MicroK8s with Helm charts
 - **🚧 LLM Integration** (Coming Soon): Ollama/Qwen3 for natural language decision making
 
-## 🏗️ Architecture
+## System Overview and Agent Workflow
 
-The system implements a **ULCL (Uplink Classifier)** topology with intelligent traffic steering:
+The system implements a **ULCL (Uplink Classifier)** topology with intelligent traffic steering. The agent continuously monitors network metrics and makes automated steering decisions through the NEF API.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      5G Data Plane                              │
-│                                                                 │
-│  ┌─────┐  N3   ┌──────────┐  N9   ┌──────────┐                │
-│  │ gNB │──────▶│ UPFB     │──────▶│ UPF1     │───▶ Internet   │
-│  │     │       │(Branching│       │(Edge1)   │                 │
-│  └─────┘       │   UPF)   │       └──────────┘                 │
-│  UERANSIM      │          │  N9   ┌──────────┐                │
-│                │          │──────▶│ UPF2     │───▶ Internet   │
-│                └──────────┘       │(Edge2)   │                 │
-│                                   └──────────┘                 │
-└─────────────────────────────────────────────────────────────────┘
+![Agent Workflow](images/agent_workflow.png)
 
-┌─────────────────────────────────────────────────────────────────┐
-│              Traffic Steering Control Loop                      │
-│                                                                 │
-│  ┌────────────┐  Metrics  ┌────────────┐                      │
-│  │ Prometheus │◀─────────│  Traffic   │                       │
-│  │            │  Scrape   │  Steering  │                       │
-│  │            │  (10s)    │   Agent    │                       │
-│  └────────────┘           │            │                       │
-│       ▲                   │ (Rule-     │                       │
-│       │                   │  Based     │                       │
-│       │                   │  Logic)    │                       │
-│  ┌────────┐               └────────────┘                       │
-│  │  UPFs  │                     │                              │
-│  │ Expose │                     │ NEF API                      │
-│  │/metrics│                     ▼                              │
-│  └────────┘              ┌────────┐       ┌────────┐          │
-│                          │  NEF   │──────▶│  SMF   │          │
-│                          └────────┘       └────────┘          │
-│                           (3GPP Traffic    (PFCP Session       │
-│                            Influence API)   Updates)           │
-└─────────────────────────────────────────────────────────────────┘
-│                                                                 │
-│  🚧 Future: LLM Decision Layer (In Development)                │
-│  ┌──────────┐                                                  │
-│  │  Ollama  │◀──── Metrics Analysis ──── Traffic Agent        │
-│  │ (Qwen3)  │                                                  │
-│  └──────────┘                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
 
 ### Core Components
 
@@ -92,6 +53,8 @@ The system implements a **ULCL (Uplink Classifier)** topology with intelligent t
   - `ns` (192.168.56.119): MicroK8s primary node - hosts 5GC, Prometheus, Grafana, Traffic Agent
   - `ns2` (192.168.56.120): MicroK8s worker node - additional UPF capacity
   - `vm3` (192.168.56.121): UERANSIM node - gNB and UE simulator
+
+![VM Setup](images/vm_setup.png)
 
 - **Host Machine**:
   - Ollama installed and running
@@ -184,6 +147,8 @@ Prometheus scrapes UPF metrics every 10 seconds via the `/metrics` endpoint.
 
 ### 5. Build and Deploy Traffic Steering Agent
 
+![Agent Workflow](images/agent_workflow.png)
+
 ```bash
 # On your host machine
 cd traffic-steering/agent
@@ -237,13 +202,27 @@ microk8s kubectl port-forward -n free5gc svc/grafana 3000:80 --address 0.0.0.0 &
 # Access at http://192.168.56.119:3000
 ```
 
-## 🎬 Demo: Watch the LLM in Action
+## 🎬 Demo: Watch the agent in Action
 
-![Demo Video](demo/traffic-steering-demo.webm)
+### Demo Videos
+
+<video src="demos/demo_llm.webm" controls></video>
+
+*LLM-based traffic steering in action*
+
+<video src="demos/demo1.webm" controls></video>
+
+*Demo 1: Initial traffic steering scenario*
+
+<video src="demos/demo2.webm" controls></video>
+
+*Demo 2: Traffic rebalancing between edges*
 
 ### Scenario: Automatic Traffic Steering Based on Load
 
 The traffic steering agent monitors UPFB traffic every 30 seconds and uses the LLM to make intelligent decisions.
+
+![Before and After Steering](images/before_after_steering.png)
 
 #### Initial State
 - No traffic policies active
@@ -337,69 +316,68 @@ microk8s kubectl logs -n free5gc -l app=traffic-steering-agent -f
 # 📊 Active policy: edge1
 ```
 
+## Running the Demo
 
-🎮 Running the Demo
-
-Scenario
+### Scenario
 
 We will simulate a user watching a video (Low Bandwidth) who then starts a massive download (High Bandwidth). The AI should detect this and move them to the Edge.
 
-Step 1: Start the UE (Cloud Path)
+### Step 1: Start the UE (Cloud Path)
 
 SSH into your UERANSIM machine and start the UE. By default, it routes to the Cloud UPF (192.168.56.121).
 
+```bash
 # Verify initial route (Should be Cloud IP)
 ping -I uesimtun0 8.8.8.8
+```
 
-
-Step 2: Generate Traffic (The Trigger)
+### Step 2: Generate Traffic (The Trigger)
 
 Start a low-bandwidth stream. The Agent sees this but takes no action (Load < 10Mbps).
 
+```bash
 iperf3 -c <LAPTOP_IP> -B 10.1.0.1 -u -b 5M -t 60
+```
 
-
-Step 3: The Spike (AI Activation)
+### Step 3: The Spike (AI Activation)
 
 Increase the load to trigger the threshold (>10Mbps).
 
+```bash
 iperf3 -c <LAPTOP_IP> -B 10.1.0.1 -u -b 25M -t 60
+```
 
+Open Grafana and check the **Traffic Steering Agent Dashboard** to observe:
+- Traffic spike in real-time
+- Agent decision-making process
+- Policy changes and steering actions
+- Traffic distribution across UPFs
 
-Watch the Agent Logs:
-
-kubectl logs -n free5gc -l app=ai-agent -f
-
-
-📊 Load: 25.0 Mbps
-🤖 AI Thinking...
-⚡ Policy Mismatch! Steering UE to Edge...
-✅ SUCCESS: Traffic steered to 192.168.56.122
-
-Step 4: Verify Traffic Shift
+### Step 4: Verify Traffic Shift
 
 You must restart the UE process (nr-ue) to force the PDU Session to pick up the new policy (in a lab environment).
 Once restarted, check the traffic flow on the Edge UPF node:
 
+```bash
 sudo tcpdump -i any dst 192.168.56.122 -n
-
+```
 
 You will see packets flowing to the Edge IP instead of the Cloud IP.
 
-🔧 Troubleshooting
+## Troubleshooting
 
-SMF Crash (context deadline exceeded):
+### SMF Crash (context deadline exceeded)
 
-This means the SMF config defines UPFs that do not exist in the cluster. Check kubectl get pods to ensure you have enough UPF instances running to match your ulcl-values.yaml.
+This means the SMF config defines UPFs that do not exist in the cluster. Check `kubectl get pods` to ensure you have enough UPF instances running to match your `ulcl-values.yaml`.
 
-NEF Error (AF not found):
+### NEF Error (AF not found)
 
-The Agent ID (SmartAgent) is not authorized. Restart the NEF pod to reload the ConfigMap: kubectl rollout restart deployment/free5gc-v1-free5gc-nef-nef.
+The Agent ID (SmartAgent) is not authorized. Restart the NEF pod to reload the ConfigMap:
 
-Traffic doesn't switch:
+```bash
+kubectl rollout restart deployment/free5gc-v1-free5gc-nef-nef
+```
+
+### Traffic doesn't switch
 
 Did you restart the UE? The PCF pushes rules during Session Establishment. Toggling "Airplane Mode" (restarting nr-ue) is required to apply the new route instantly in this lab setup.
-
-🎥 Demo Video
-
-[Insert GIF or Link to Video Here]
