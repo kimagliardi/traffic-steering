@@ -202,21 +202,17 @@ microk8s kubectl port-forward -n free5gc svc/grafana 3000:80 --address 0.0.0.0 &
 # Access at http://192.168.56.119:3000
 ```
 
-## 🎬 Demo: Watch the agent in Action
+## 🎬 Demo: Watch the Agent in Action
 
 ### Demo Videos
 
-<video src="demos/demo_llm.webm" controls></video>
+| Demo | Description |
+|------|-------------|
+| 🎥 [**LLM Traffic Steering Demo**](https://github.com/kimagliardi/traffic-steering/raw/main/demos/demo_llm.webm) | LLM-based traffic steering in action |
+| 🎥 [**Demo 1: Initial Steering**](https://github.com/kimagliardi/traffic-steering/raw/main/demos/demo1.webm) | Initial traffic steering scenario |
+| 🎥 [**Demo 2: Traffic Rebalancing**](https://github.com/kimagliardi/traffic-steering/raw/main/demos/demo2.webm) | Traffic rebalancing between edges |
 
-*LLM-based traffic steering in action*
-
-<video src="demos/demo1.webm" controls></video>
-
-*Demo 1: Initial traffic steering scenario*
-
-<video src="demos/demo2.webm" controls></video>
-
-*Demo 2: Traffic rebalancing between edges*
+*Click on the links above to download and watch the demo videos.*
 
 ### Scenario: Automatic Traffic Steering Based on Load
 
